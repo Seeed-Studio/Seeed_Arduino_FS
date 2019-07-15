@@ -8,9 +8,10 @@
 
  */
 #include <Arduino.h>
-#include "Seeed_File.h"
+#include <Seeed_FS.h>
 
 
+namespace fs {
 
 File::File(FIL f, const char *n) { //is a file.
   _file = new FIL(f);
@@ -185,3 +186,112 @@ File::operator bool() {
     return  true;
   return false;
 }
+
+
+ File FS::open(const char *filepath, uint8_t mode)
+ {
+   FRESULT ret = FR_OK;
+   FILINFO v_fileinfo;
+
+   if(!strcmp(filepath, "/"))
+   {
+      DIR dir;
+      if((ret = f_opendir(&dir, _T("/"))) == FR_OK)
+          return File(dir, filepath);
+         else
+          return File();
+   }
+   
+   if((ret = f_stat(filepath, &v_fileinfo)) == FR_OK){
+      if (v_fileinfo.fattrib & AM_DIR)
+      {
+         DIR dir;
+         if((ret = f_opendir(&dir, filepath)) == FR_OK)
+          return File(dir, filepath);
+         else
+          return File();
+      }else{
+         FIL file;
+         if((ret = f_open(&file, filepath, mode)) == FR_OK)
+           return File(file, filepath);
+         else
+           return File();
+      }
+   }else{
+      FIL file;
+         if((ret = f_open(&file, filepath, mode)) == FR_OK)
+           return File(file, filepath);
+         else
+           return File();
+   }
+    
+ }
+
+boolean FS:: exists(const char *filepath)
+{
+   FRESULT ret = FR_OK;
+   FILINFO v_fileinfo;
+   if((ret = f_stat(filepath, &v_fileinfo)) == FR_OK){
+      return true;
+   }else{
+      return false;
+   }
+}
+
+
+boolean FS::mkdir(const char *filepath) 
+{
+  FRESULT ret = FR_OK;
+  ret = f_mkdir(filepath);
+  if(ret == FR_OK)
+     return true;
+  else
+    return false;
+}
+
+boolean FS::rename(const char* pathFrom, const char* pathTo)
+{
+  FRESULT ret = FR_OK;
+  ret = f_rename(pathFrom, pathTo);
+  if(ret == FR_OK)
+     return true;
+  else
+    return false;
+}
+
+boolean FS::rmdir(const char *filepath) 
+{
+   char file[_MAX_LFN+2]; 
+   FRESULT status;
+   DIR dj;
+   FILINFO fno;
+   status = f_findfirst(&dj, &fno, filepath, _T("*"));
+    while (status == FR_OK && fno.fname[0]) {
+        sprintf((char*)file, "%s/%s", filepath, fno.fname);
+        if (fno.fattrib & AM_DIR){
+            rmdir(file);
+        }
+        else{
+            remove(file);
+        }
+        status = f_findnext(&dj, &fno);
+    }
+   f_closedir(&dj);
+  if(remove(filepath))
+  {
+     return true;
+  }else{
+    return false;
+  }
+}
+
+boolean FS::remove(const char *filepath)
+{
+  FRESULT ret = FR_OK;
+  ret = f_unlink(filepath);
+  if(ret == FR_OK)
+     return true;
+  else
+    return false;
+}
+};
