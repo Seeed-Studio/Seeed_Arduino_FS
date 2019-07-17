@@ -16,6 +16,8 @@
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
 
+#define csPin 29
+
 void listDir(fs::FS &fs, const char * dirname, uint8_t levels){
     Serial.print("Listing directory: ");
     Serial.println(dirname);
@@ -189,7 +191,7 @@ void testFileIO(fs::FS &fs, const char * path){
 
 void setup(){
     Serial.begin(115200);
-    if(!SD.begin()){
+    if(!SD.begin(csPin)){
         Serial.println("Card Mount Failed");
         return;
     }

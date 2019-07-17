@@ -26,6 +26,8 @@
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
 
+#define csPin 29
+
 File myFile;
 
 void setup() {
@@ -38,7 +40,7 @@ void setup() {
 
   Serial.print("Initializing SD card...");
 
-  if (!SD.begin(11)) {
+  if (!SD.begin(csPin)) {
     Serial.println("initialization failed!");
     while (1);
   }

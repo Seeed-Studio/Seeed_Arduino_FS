@@ -158,16 +158,18 @@ File File::openNextFile(uint8_t mode) {
             i = strlen(path);
             sprintf((char*)path+i, "/%s",  fno.fname);
             DIR dir;
-            if((res = f_opendir(&dir, path)) == FR_OK)
+            if((res = f_opendir(&dir, path)) == FR_OK){
                return File(dir, path);
+            }
              else
                return File();
         } else {                                       
             i = strlen(path);
             sprintf((char*)path+i, "/%s",  fno.fname);
             FIL file;
-            if((res = f_open(&file, path, mode)) == FR_OK)
+            if((res = f_open(&file, path, mode)) == FR_OK){
               return File(file, path);
+            }
             else
               return File();
         }
@@ -200,6 +202,7 @@ File::operator bool() {
           return File(dir, filepath);
          else
           return File();
+          
    }
    
    if((ret = f_stat(filepath, &v_fileinfo)) == FR_OK){
