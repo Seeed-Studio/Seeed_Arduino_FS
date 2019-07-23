@@ -6,6 +6,17 @@ A friendly library for file operation.
 
 ### Boards
   Currently, only Kendryte K210 architecture is supported.
+  
+### Features
+#### SD CARD
+ SPI|PIN
+ :-:|:-:
+MOSI| 28
+MISO| 26
+SCLK| 27
+ CS | 29
+  
+
 ### License
 This software is written by LynnL4 for seeed studio
 Email:hongtai.liu@seeed.cc and is licensed under The MIT License. Check License.txt for more information.
