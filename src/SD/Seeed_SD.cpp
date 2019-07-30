@@ -19,12 +19,12 @@ extern SD_CardInfo cardinfo; //the cardinfo
 
 namespace fs {
 
-boolean SDFS::begin(uint8_t ssPin, SPIClass &spi)
+boolean SDFS::begin(uint8_t ssPin, SPIClass &spi, int hz)
 {
    card = &cardinfo;
    card->ssPin = ssPin; 
    card->spi = &spi;
-
+   card->frequency = hz;
    spi.begin();
 
    FRESULT status = FR_OK;

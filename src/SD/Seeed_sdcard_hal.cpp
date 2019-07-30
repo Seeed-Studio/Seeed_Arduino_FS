@@ -62,18 +62,18 @@ void SD_CS_LOW(void)
 void SD_HIGH_SPEED_ENABLE(void)
 {
     #ifdef KENDRYTE_K210
-      cardinfo.spi->beginTransaction(SPISettings(4000000, LSBFIRST, 0));
+      cardinfo.spi->beginTransaction(SPISettings(cardinfo.frequency, LSBFIRST, 0));
     #else
-       cardinfo.spi->beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
+       cardinfo.spi->beginTransaction(SPISettings(cardinfo.frequency, MSBFIRST, SPI_MODE0));
     #endif
 }
 
 static void SD_HIGH_SPEED_DISABLE(void)
 {
     #ifdef KENDRYTE_K210
-      cardinfo.spi->beginTransaction(SPISettings(200000, LSBFIRST, 0));
+      cardinfo.spi->beginTransaction(SPISettings(400000, LSBFIRST, 0));
     #else
-       cardinfo.spi->beginTransaction(SPISettings(200000, MSBFIRST, SPI_MODE0));
+       cardinfo.spi->beginTransaction(SPISettings(400000, MSBFIRST, SPI_MODE0));
     #endif
 }
 
