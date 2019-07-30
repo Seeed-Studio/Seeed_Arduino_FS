@@ -31,7 +31,7 @@ File::File(DIR d, const char *n) {// is a directory
 
 
 File::File(void) {  
-  _file = 0;
+  _file = NULL;
   _name[0] = 0;
   //Serial.print("Created empty file object");
 }
@@ -65,7 +65,7 @@ size_t File::write(uint8_t val) {
 }
 
 size_t File::write(const uint8_t *buf, size_t size) {
-  uint32_t t;
+  UINT t;
   if (!_file) {
     return 0;
   }
@@ -95,7 +95,7 @@ int File::read() {
 }
 
 long File::read(void *buf, uint32_t nbyte) {
-  uint32_t t;
+  UINT t;
   if (!_file) {
     return 0;
   }
@@ -138,7 +138,7 @@ void File::close() {
     delete _dir;
     _dir = NULL;
   }else{
-     f_close(_file);
+     Serial.println(f_close(_file));
     delete _file; 
     _file = NULL;
   }
@@ -154,9 +154,12 @@ File File::openNextFile(uint8_t mode) {
     for (;;) {
         res = f_readdir(_dir, &fno);                   /* Read a directory item */
         if (res != FR_OK || fno.fname[0] == 0) break;  /* Break on error or end of dir */
-        if (fno.fattrib & AM_DIR) {                    /* It is a directory */
-            i = strlen(path);
+        if(fno.fattrib==255) continue;  /*ignore if the addr was removed*/
+
+         i = strlen(path);
             sprintf((char*)path+i, "/%s",  fno.fname);
+        
+        if (fno.fattrib & AM_DIR) {                    /* It is a directory */
             DIR dir;
             if((res = f_opendir(&dir, path)) == FR_OK){
                return File(dir, path);
@@ -164,8 +167,6 @@ File File::openNextFile(uint8_t mode) {
              else
                return File();
         } else {                                       
-            i = strlen(path);
-            sprintf((char*)path+i, "/%s",  fno.fname);
             FIL file;
             if((res = f_open(&file, path, mode)) == FR_OK){
               return File(file, path);

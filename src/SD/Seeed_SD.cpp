@@ -15,22 +15,17 @@
   #include <SPI.h>
 #endif
 
-extern SD_CardInfo cardinfo; //the cardinfo 
+
 
 namespace fs {
 
 boolean SDFS::begin(uint8_t ssPin, SPIClass &spi, int hz)
 {
-   card = &cardinfo;
-   card->ssPin = ssPin; 
-   card->spi = &spi;
-   card->frequency = hz;
-   spi.begin();
+  _pdrv = sdcard_init(ssPin, &spi, hz);
+  spi.begin();
+  FRESULT status;
 
-   FRESULT status = FR_OK;
-   pinMode(card->ssPin, OUTPUT);
-   status = f_mount(&root, _T("0:"), 1);
-  
+  status = f_mount(&root, _T("0:"), 1);
   if (status != FR_OK)
       return false;  
   else{ 
@@ -38,14 +33,33 @@ boolean SDFS::begin(uint8_t ssPin, SPIClass &spi, int hz)
   }
 }
 
+void SDFS::end()
+{
+    if(_pdrv != 0xFF) {
+         f_mount(NULL, _T("0:"), 1);
+        sdcard_uninit(_pdrv);
+        _pdrv = 0xFF;
+    }
+}
+
 sdcard_type_t SDFS::cardType()
 {
-   return (sdcard_type_t)card->SD_cid.ProdRev;
+    if(_pdrv == 0xFF) {
+        return CARD_NONE;
+    }
+    return sdcard_type(_pdrv);
 }
+
 uint64_t SDFS::cardSize()
 {
-    return card->CardCapacity;
+    if(_pdrv == 0xFF) {
+        return 0;
+    }
+    size_t sectors = sdcard_num_sectors(_pdrv);
+    size_t sectorSize = sdcard_sector_size(_pdrv);
+    return (uint64_t)sectors * sectorSize;
 }
+
 
 uint64_t SDFS::totalBytes()
 {

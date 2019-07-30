@@ -16,7 +16,6 @@
 #define __SD_H__
 
 #include <Arduino.h>
-#include <cstddef>
 #include "Seeed_sdcard_hal.h"
 #include <Seeed_FS.h>
 #ifdef KENDRYTE_K210
@@ -25,29 +24,21 @@
   #include <SPI.h>
 #endif
 
-typedef enum {
-    CARD_NONE,
-    CARD_MMC,
-    CARD_SD,
-    CARD_SDHC,
-    CARD_UNKNOWN
-} sdcard_type_t;
-
 namespace fs {
 
 class SDFS : public FS{
 private:
-  SD_CardInfo *card;
+  uint8_t _pdrv;
 
 public:
   SDFS(){}
   ~SDFS(){}
   // This needs to be called to set up the connection to the SD card
   // before other methods are used.
-  boolean begin(uint8_t ssPin=11, SPIClass & spi=SPI);
+  boolean begin(uint8_t ssPin=11, SPIClass & spi=SPI, int hz = 4000000);
   
   //call this when a card is removed. It will allow you to insert and initialise a new card.
-  void end(){};
+  void end();
   
   sdcard_type_t cardType();
   uint64_t cardSize();
@@ -62,5 +53,6 @@ using namespace fs;
 typedef fs::File        SDFile;
 typedef fs::SDFS        SDFileSystemClass;
 #define SDFileSystem    SD
+
 
 #endif

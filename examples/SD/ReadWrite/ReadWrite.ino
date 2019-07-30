@@ -25,26 +25,31 @@
 #endif
 #include <Seeed_FS.h>
 #include "SD/Seeed_SD.h"
+#define SERIAL Serial
 
-#define csPin 29
+#define csPin 4
+#ifdef ARDUINO_ARCH_SAMD
+#undef SERIAL Serial
+#define SERIAL SerialUSB
+#endif
 
 File myFile;
 
 void setup() {
-  // Open serial communications and wait for port to open:
-  Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
+  // Open SERIAL communications and wait for port to open:
+  SERIAL.begin(115200);
+  while (!SERIAL) {
+    ; // wait for SERIAL port to connect. Needed for native USB port only
   }
 
 
-  Serial.print("Initializing SD card...");
+  SERIAL.print("Initializing SD card...");
 
   if (!SD.begin(csPin)) {
-    Serial.println("initialization failed!");
+    SERIAL.println("initialization failed!");
     while (1);
   }
-  Serial.println("initialization done.");
+  SERIAL.println("initialization done.");
 
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
@@ -52,30 +57,30 @@ void setup() {
 
   // if the file opened okay, write to it:
   if (myFile) {
-    Serial.print("Writing to test.txt...");
+    SERIAL.print("Writing to test.txt...");
     myFile.println("testing 1, 2, 3.");
     // close the file:
     myFile.close();
-    Serial.println("done.");
+    SERIAL.println("done.");
   } else {
     // if the file didn't open, print an error:
-    Serial.println("error opening test.txt");
+    SERIAL.println("error opening test.txt");
   }
 
   // re-open the file for reading:
   myFile = SD.open("test.txt");
   if (myFile) {
-    Serial.println("test.txt:");
+    SERIAL.println("test.txt:");
 
     // read from the file until there's nothing else in it:
     while (myFile.available()) {
-      Serial.write(myFile.read());
+      SERIAL.write(myFile.read());
     }
     // close the file:
     myFile.close();
   } else {
     // if the file didn't open, print an error:
-    Serial.println("error opening test.txt");
+    SERIAL.println("error opening test.txt");
   }
 }
 
