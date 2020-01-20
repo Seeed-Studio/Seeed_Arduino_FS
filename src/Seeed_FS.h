@@ -41,6 +41,13 @@
 
 namespace fs{
 
+enum SeekMode {
+    SeekSet = 0,
+    SeekCur = 1,
+    SeekEnd = 2
+};
+
+
 class File : public Stream {
  private:
   char _name[_MAX_LFN+2]; // file name
@@ -59,6 +66,7 @@ public:
   virtual void flush();
   long read(void *buf, uint32_t nbyte);
   boolean seek(uint32_t pos);
+  bool seek(uint32_t pos, SeekMode mode);
   uint32_t position();
   uint32_t size();
   void close();
@@ -81,6 +89,8 @@ public:
   // Note that currently only one file can be open at a time.
   File open(const char *filepath, uint8_t mode = FILE_READ);
   File open(const String &filepath, uint8_t mode = FILE_READ) { return open( filepath.c_str(), mode ); }
+  File open(const char *filepath, const char *mode);
+  File open(const String &filepath, const char *mode) { return open( filepath.c_str(), mode ); }
 
   // Methods to determine if the requested file path exists.
   boolean exists(const char *filepath);
