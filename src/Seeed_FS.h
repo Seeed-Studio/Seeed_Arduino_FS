@@ -111,6 +111,6 @@ public:
   boolean rmdir(const char *filepath);
   boolean rmdir(const String &filepath) { return rmdir(filepath.c_str()); }
 };
-using namespace fs;
 };
+using namespace fs;
 #endif
