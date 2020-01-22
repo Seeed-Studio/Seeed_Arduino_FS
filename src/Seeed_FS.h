@@ -53,11 +53,13 @@ class File : public Stream {
   char _name[_MAX_LFN+2]; // file name
   FIL *_file;  // underlying file pointer
   DIR *_dir;  // if open a dir
+  FILINFO* _fno; // for traverse directory
 
 public:
   File(FIL f, const char *name);     // wraps an underlying SdFile
   File(DIR d, const char *name);
   File(void);      // 'empty' constructor
+  ~File();
   virtual size_t write(uint8_t);
   virtual size_t write(const uint8_t *buf, size_t size);
   virtual int read();

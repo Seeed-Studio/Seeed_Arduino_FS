@@ -21,6 +21,7 @@ File::File(FIL f, const char *n)
     _dir = NULL;
     sprintf((char *)_name, "%s", n);
   }
+  _fno = NULL;
 }
 
 File::File(DIR d, const char *n)
@@ -31,6 +32,7 @@ File::File(DIR d, const char *n)
     _file = NULL;
     sprintf((char *)_name, "%s", n);
   }
+  _fno = NULL;
 }
 
 File::File(void)
@@ -39,6 +41,13 @@ File::File(void)
   _dir = NULL;
   _name[0] = 0;
   //Serial.print("Created empty file object");
+  _fno = NULL;
+}
+
+File::~File() {
+  delete _file;
+  delete _dir;
+  delete _fno;
 }
 
 // returns a pointer to the file name
@@ -52,6 +61,7 @@ boolean File::isDirectory(void)
 {
   FRESULT ret = FR_OK;
   FILINFO v_fileinfo;
+
   if ((ret = f_stat(_name, &v_fileinfo)) == FR_OK)
   {
     if (v_fileinfo.fattrib & AM_DIR)
@@ -200,21 +210,28 @@ File File::openNextFile(uint8_t mode)
 {
   FRESULT res;
   UINT i;
-  static FILINFO fno;
   static char path[257];
+
   strcpy(path, _name);
-  for (;;)
+  if (!_fno) {
+    _fno = new FILINFO;
+  }
+
+  for (;_fno;)
   {
-    res = f_readdir(_dir, &fno); /* Read a directory item */
-    if (res != FR_OK || fno.fname[0] == 0)
+    res = f_readdir(_dir, _fno); /* Read a directory item */
+    if (res != FR_OK || _fno->fname[0] == 0)
       break; /* Break on error or end of dir */
-    if (fno.fattrib == 255)
+    if (_fno->fattrib == 255)
       continue; /*ignore if the addr was removed*/
 
     i = strlen(path);
-    sprintf((char *)path + i, "/%s", fno.fname);
+    if (i && path[i - 1] != '/') {
+      path[i++] = '/';
+    }
+    sprintf((char *)path + i, "%s", _fno->fname);
 
-    if (fno.fattrib & AM_DIR)
+    if (_fno->fattrib & AM_DIR)
     { /* It is a directory */
       DIR dir;
       if ((res = f_opendir(&dir, path)) == FR_OK)
