@@ -62,6 +62,9 @@ boolean File::isDirectory(void)
   FRESULT ret = FR_OK;
   FILINFO v_fileinfo;
 
+  if (_dir && !_file) {
+    return true;
+  }
   if ((ret = f_stat(_name, &v_fileinfo)) == FR_OK)
   {
     if (v_fileinfo.fattrib & AM_DIR)
