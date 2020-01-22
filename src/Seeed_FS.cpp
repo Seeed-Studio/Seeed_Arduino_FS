@@ -45,8 +45,7 @@ File::File(void)
 }
 
 File::~File() {
-  delete _file;
-  delete _dir;
+  close();
   delete _fno;
 }
 
@@ -194,15 +193,15 @@ uint32_t File::size()
 
 void File::close()
 {
-  if (isDirectory())
+  if (_dir)
   {
     f_closedir(_dir);
     delete _dir;
     _dir = NULL;
   }
-  else
+  if (_file)
   {
-    Serial.println(f_close(_file));
+    f_close(_file);
     delete _file;
     _file = NULL;
   }
