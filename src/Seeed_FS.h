@@ -113,4 +113,7 @@ public:
 };
 };
 using namespace fs;
+
+#include "SD/Seeed_SD.h"
+
 #endif
