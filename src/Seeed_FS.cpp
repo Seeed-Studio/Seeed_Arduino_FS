@@ -36,6 +36,7 @@ File::File(DIR d, const char *n)
 File::File(void)
 {
   _file = NULL;
+  _dir = NULL;
   _name[0] = 0;
   //Serial.print("Created empty file object");
 }
