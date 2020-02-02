@@ -2,9 +2,9 @@
 #define SEEED_SDCARD_HAL_H
 
 #ifdef KENDRYTE_K210
-#include "SPIClass.h"
+    #include "SPIClass.h"
 #else
-#include "SPI.h"
+    #include "SPI.h"
 #endif
 
 #include "Arduino.h"
@@ -19,7 +19,7 @@ typedef enum {
 
 typedef struct {
     uint8_t ssPin;
-    SPIClass * spi;
+    SPIClass* spi;
     int frequency;
     sdcard_type_t type;
     unsigned long sectors;
@@ -27,7 +27,7 @@ typedef struct {
     int status;
 } ardu_sdcard_t;
 
-uint8_t sdcard_init(uint8_t cs, SPIClass * spi, int hz);
+uint8_t sdcard_init(uint8_t cs, SPIClass* spi, int hz);
 uint8_t sdcard_uninit(uint8_t pdrv);
 
 bool sdcard_mount(uint8_t pdrv);

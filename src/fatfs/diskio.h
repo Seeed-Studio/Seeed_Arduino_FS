@@ -1,6 +1,6 @@
-/*-----------------------------------------------------------------------/
-/  Low level disk interface modlue include file   (C)ChaN, 2014          /
-/-----------------------------------------------------------------------*/
+/*  -----------------------------------------------------------------------/
+    /  Low level disk interface modlue include file   (C)ChaN, 2014          /
+    /-----------------------------------------------------------------------*/
 
 #ifndef _DISKIO_DEFINED
 #define _DISKIO_DEFINED
@@ -17,11 +17,11 @@ typedef BYTE	DSTATUS;
 
 /* Results of Disk Functions */
 typedef enum {
-	RES_OK = 0,		/* 0: Successful */
-	RES_ERROR,		/* 1: R/W Error */
-	RES_WRPRT,		/* 2: Write Protected */
-	RES_NOTRDY,		/* 3: Not Ready */
-	RES_PARERR		/* 4: Invalid Parameter */
+    RES_OK = 0,		/* 0: Successful */
+    RES_ERROR,		/* 1: R/W Error */
+    RES_WRPRT,		/* 2: Write Protected */
+    RES_NOTRDY,		/* 3: Not Ready */
+    RES_PARERR		/* 4: Invalid Parameter */
 } DRESULT;
 
 
@@ -29,46 +29,46 @@ typedef enum {
 /* Prototypes for disk control functions */
 
 
-DSTATUS disk_initialize (BYTE pdrv);
-DSTATUS disk_status (BYTE pdrv);
-DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
+DSTATUS disk_initialize(BYTE pdrv);
+DSTATUS disk_status(BYTE pdrv);
+DRESULT disk_read(BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
+DRESULT disk_write(BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void* buff);
 
 /**
- * Structure of pointers to disk IO driver functions.
- *
- * See FatFs documentation for details about these functions
- */
+    Structure of pointers to disk IO driver functions.
+
+    See FatFs documentation for details about these functions
+*/
 typedef struct {
-    DSTATUS (*init) (BYTE pdrv);    /*!< disk initialization function */
-    DSTATUS (*status) (BYTE pdrv);  /*!< disk status check function */
-    DRESULT (*read) (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);  /*!< sector read function */
-    DRESULT (*write) (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);   /*!< sector write function */
-    DRESULT (*ioctl) (BYTE pdrv, BYTE cmd, void* buff); /*!< function to get info about disk and do some misc operations */
+    DSTATUS(*init)(BYTE pdrv);      /*!< disk initialization function */
+    DSTATUS(*status)(BYTE pdrv);    /*!< disk status check function */
+    DRESULT(*read)(BYTE pdrv, BYTE* buff, DWORD sector, UINT count);    /*!< sector read function */
+    DRESULT(*write)(BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);     /*!< sector write function */
+    DRESULT(*ioctl)(BYTE pdrv, BYTE cmd, void* buff);   /*!< function to get info about disk and do some misc operations */
 } ff_diskio_impl_t;
 
 /**
- * Register or unregister diskio driver for given drive number.
- *
- * When FATFS library calls one of disk_xxx functions for driver number pdrv,
- * corresponding function in discio_impl for given pdrv will be called.
- *
- * @param pdrv drive number
- * @param discio_impl   pointer to ff_diskio_impl_t structure with diskio functions
- *                      or NULL to unregister and free previously registered drive
- */
+    Register or unregister diskio driver for given drive number.
+
+    When FATFS library calls one of disk_xxx functions for driver number pdrv,
+    corresponding function in discio_impl for given pdrv will be called.
+
+    @param pdrv drive number
+    @param discio_impl   pointer to ff_diskio_impl_t structure with diskio functions
+                        or NULL to unregister and free previously registered drive
+*/
 void ff_diskio_register(BYTE pdrv, const ff_diskio_impl_t* discio_impl);
 
 
 /**
- * Get next available drive number
- *
- * @param   out_pdrv            pointer to the byte to set if successful
- *
- * @return  true                on success
- *          false   if all drives are attached
- */
+    Get next available drive number
+
+    @param   out_pdrv            pointer to the byte to set if successful
+
+    @return  true                on success
+            false   if all drives are attached
+*/
 uint8_t ff_diskio_get_drive(BYTE* out_pdrv);
 
 
