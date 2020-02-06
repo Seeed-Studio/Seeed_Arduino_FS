@@ -5,6 +5,9 @@ matrix:
         - BOARD="arduino:avr:uno"
     - env:
         - BOARD="Seeeduino:samd:seeed_XIAO_m0"
+    - env:
+        - BOARD="Seeeduino:samd:seeed_grove_ui_wireless"
+
 # default phases
 before_install:
   - mkdir -p "$HOME/bin"
@@ -26,17 +29,18 @@ before_install:
   - installLibrary Seeed-Studio/Seeed_Arduino_FS
   - buildExampleSketch() { arduino-cli compile  --warnings all --fqbn $BOARD $PWD/examples/$1 --verbose; }
   - buildExampleUtilitySketch() { arduino-cli compile --warnings all --fqbn $BOARD $PWD/examples/utility/$1 --verbose; }
+
 install:
   - mkdir -p $HOME/Arduino/libraries
+
 script:
     - |
-      if [ "$BOARD" == "arduino:avr:uno" ]; then
-        buildExampleSketch SD;
-      fi
+      buildExampleSketch SD/ReadWrite;
     - |
-      if [ "$BOARD" == "Seeeduino:samd:seeed_XIAO_m0" ]; then
-        buildExampleSketch SD;
-      fi
+      buildExampleSketch SD/SD_Test;
+    - |
+      buildExampleSketch SD/listfiles;
+
 notifications:
   webhooks:
     urls:
