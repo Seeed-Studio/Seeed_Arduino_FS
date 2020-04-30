@@ -38,7 +38,11 @@
 #define FILE_APPEND (FA_OPEN_APPEND | FA_WRITE)
 
 #include "fatfs/ff.h"
-
+#ifdef KENDRYTE_K210
+    #include <SPIClass.h>
+#else
+    #include <SPI.h>
+#endif
 namespace fs {
 
     enum SeekMode {
@@ -129,6 +133,5 @@ namespace fs {
 };
 using namespace fs;
 
-#include "SD/Seeed_SD.h"
 
 #endif
