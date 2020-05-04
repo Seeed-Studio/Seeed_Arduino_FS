@@ -10,31 +10,24 @@
 namespace fs {
 
     boolean SFUDFS::begin(uint8_t ssPin, SPIClass& spi, int hz) {
-        // uint8_t pdrv = 0xFF;
-        BYTE work[1024]; /* Work area (larger is better for processing time) */
         _pdrv = 0xff;
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
         }      
         ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
         flash_t->ssPin = ssPin;
-        // chipSelectPin = flash_t->ssPin;
         flash_t->type = FLASH_NONE;
-        flash_t->status |= STA_NOINIT;
+        flash_t->status = STA_NOINIT;
         s_sfuds[_pdrv] = flash_t;
-        static const ff_diskio_impl_t flash_impl = {
-            .init = &disk_initialize,
-            .status = &disk_status,
-            .read = &disk_read,
-            .write = &disk_write,
-            .ioctl = &disk_ioctl            
-        };
-        ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
-        Serial.println(f_mkfs(_T("0:"), FM_ANY, 0, work, sizeof(work)));
-        FATFS fs;
         status = f_mount(&root, _T("0:"), 1);
-        Serial.println(status);
+        SEEED_FS_DEBUG("The status of mount : %d",status);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
+        if (status == FR_NO_FILESYSTEM){
+            BYTE work[1024]; /* Work area (larger is better for processing time) */
+            f_mkfs(_T("0:"), FM_ANY, 0, work, sizeof(work));
+            status = f_mount(&root, _T("0:"), 1);
+        }
         if (status != FR_OK) {
             return false;
         } else {
@@ -114,7 +107,6 @@ namespace fs {
 const sfud_flash* flash = NULL;
 
 DSTATUS disk_initialize(uint8_t pdrv){
-    Serial.println('1');
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (!(flash_t->status & STA_NOINIT)) {
         return flash_t->status;
@@ -130,12 +122,11 @@ DSTATUS disk_initialize(uint8_t pdrv){
     return flash_t->status;
 }
 DSTATUS disk_status(uint8_t pdrv) {
-    Serial.println('2');
-    return s_sfuds[pdrv]->status;
+    ardu_sfud_t* flash_t = s_sfuds[pdrv];
+    return flash_t->status;
 }
 DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
-    Serial.println('3');
     if (flash_t->status & STA_NOINIT) {
         return RES_NOTRDY;
     }
@@ -154,7 +145,6 @@ DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
 }
 DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
-    Serial.println('4');
     if (flash_t->status & STA_NOINIT) {
         return RES_NOTRDY;
     }
@@ -165,7 +155,6 @@ DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count
     return res;
 }
 DRESULT disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
-    Serial.println('5');
     switch (cmd) {
         case CTRL_SYNC: 
             return RES_OK;
@@ -173,12 +162,12 @@ DRESULT disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
             *((unsigned long*) buff) = s_sfuds[pdrv]->sectors;
             return RES_OK;
         case GET_SECTOR_SIZE:
-            *((WORD*) buff) = SECTORSIZE;
+            *((WORD*) buff) = s_sfuds[pdrv]->sector_size;
             return RES_OK;
         case GET_BLOCK_SIZE:
             *((uint32_t*)buff) = 1;
             return RES_OK;
     }
-    return RES_PARERR;        
+    return RES_PARERR;
 }
 #endif

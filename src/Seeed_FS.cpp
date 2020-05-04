@@ -379,3 +379,44 @@ namespace fs {
         }
     }
 }; // namespace fs
+static char log_buf[256];
+/**
+ * This function is print debug info.
+ *
+ * @param file the file which has call this function
+ * @param line the line number which has call this function
+ * @param format output format
+ * @param ... args
+ */
+void seeed_fs_log_debug(const char *file, const long line, const char *format, ...) {
+    va_list args;
+
+    /* args point to the first variable parameter */
+    va_start(args, format);
+
+    printf("[SEEED_FS](%s:%ld) ", file, line);
+    /* must use vprintf to print */
+    vsnprintf(log_buf, sizeof(log_buf), format, args);
+
+    printf("%s\n", log_buf);
+    va_end(args);
+}
+
+/**
+ * This function is print routine info.
+ *
+ * @param format output format
+ * @param ... args
+ */
+void seeed_fs_log_info(const char *format, ...) {
+    va_list args;
+
+    /* args point to the first variable parameter */
+    va_start(args, format);
+    printf("[SEEED_FS]");
+    /* must use vprintf to print */
+    vsnprintf(log_buf, sizeof(log_buf), format, args);
+    printf("%s\n", log_buf);
+    va_end(args);
+}
+

@@ -28,17 +28,17 @@ typedef enum {
     FLASH_SPI
 } sfud_type_t;
 
+#define SECTORSIZE 512
+
 typedef struct {
     uint8_t ssPin;
     sfud_type_t type;
     unsigned long sectors;
+    unsigned long sector_size = SECTORSIZE;
     int status;
 } ardu_sfud_t;
 
 static ardu_sfud_t* s_sfuds[_VOLUMES] = { NULL };
-
-
-#define SECTORSIZE 512
 namespace fs {
 
     class SFUDFS : public FS {
@@ -51,7 +51,6 @@ namespace fs {
         // before other methods are used.
         boolean begin(uint8_t ssPin = 1, SPIClass& spi = SPI, int hz = 4000000);
         // boolean begin(uint8_t ssPin , SPIClass& spi, int hz);
-        boolean begin(uint8_t ssPin = 1);    
         //call this when a card is removed. It will allow you to insert and initialise a new card.
         boolean end();
 
