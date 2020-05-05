@@ -187,12 +187,10 @@ void testFileIO(fs::FS& fs, const char* path) {
 
     size_t i;
     start = millis();
-    for (i = 0; i < 2048; i++) {
-        file.write(buf, 512);
-    }
+    file.write(buf, 512);
     end = millis() - start;
-    SERIAL.print(2048 * 512);
-    SERIAL.print(" bytes read for ");
+    SERIAL.print(512);
+    SERIAL.print(" bytes write for ");
     SERIAL.print(end);
     SERIAL.println(" ms");
     file.close();

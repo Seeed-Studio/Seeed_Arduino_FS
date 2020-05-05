@@ -32,9 +32,9 @@ typedef enum {
 
 typedef struct {
     uint8_t ssPin;
+    int16_t sector_size;
     sfud_type_t type;
     unsigned long sectors;
-    unsigned long sector_size = SECTORSIZE;
     int status;
 } ardu_sfud_t;
 

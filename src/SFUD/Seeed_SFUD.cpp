@@ -14,10 +14,12 @@ namespace fs {
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
         }      
+        SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
         flash_t->ssPin = ssPin;
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
+        flash_t->sector_size = SECTORSIZE;
         s_sfuds[_pdrv] = flash_t;
         FRESULT status;
         status = f_mount(&root, _T("0:"), 1);
@@ -39,7 +41,7 @@ namespace fs {
             f_mount(NULL, _T("0:"), 1);
             ardu_sfud_t* flash_t = s_sfuds[_pdrv];
             if (_pdrv >= _VOLUMES || flash_t == NULL) {
-                return 0;
+                return false;
             }
             ff_diskio_register(_pdrv, NULL);
             flash_t->status |= STA_NOINIT;
@@ -48,7 +50,6 @@ namespace fs {
             _pdrv = 0xFF;
         }
     }
-
     sfud_type_t SFUDFS::flashType() {
         if (_pdrv == 0xFF) {
             return FLASH_NONE;
@@ -59,24 +60,24 @@ namespace fs {
         }   
         return flash_t->type;
     }
-
     uint64_t SFUDFS::flashSize() {
         if (_pdrv == 0xFF) {
-            return 0;
-        }        
+            return false;
+        }
         ardu_sfud_t* flash_t = s_sfuds[_pdrv];
         if (_pdrv >= _VOLUMES || flash_t == NULL) {
-            return 0;
+            return false;
         }
-        return flash_t->sectors * SECTORSIZE;
+        SEEED_FS_DEBUG("The sectors: %d , The sector size: %d",flash_t->sectors,flash_t->sector_size);
+        return flash_t->sectors * flash_t->sector_size;
     }
-
     uint64_t SFUDFS::totalBytes() {
         FATFS* fsinfo;
-        DWORD fre_clust;
-        if (f_getfree("0:", &fre_clust, &fsinfo) != 0) {
-            return 0;
-        }
+        FRESULT ret = FR_OK;
+        DWORD free_clust;
+        ret = f_getfree(_T("0:"), &free_clust, &fsinfo);
+        SEEED_FS_DEBUG("The status of f_getfree : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         uint64_t size = ((uint64_t)(fsinfo->csize)) * (fsinfo->n_fatent - 2)
                         #if _MAX_SS != 512
                         * (fsinfo->ssize);
@@ -85,12 +86,11 @@ namespace fs {
                         #endif
         return size;
     }
-
     uint64_t SFUDFS::usedBytes() {
         FATFS* fsinfo;
-        DWORD fre_clust;
-        if (f_getfree("0:", &fre_clust, &fsinfo) != 0) {
-            return 0;
+        DWORD free_clust;
+        if (f_getfree(_T("0:"), &free_clust, &fsinfo) != 0) {
+            return false;
         }
         uint64_t size = ((uint64_t)(fsinfo->csize)) * ((fsinfo->n_fatent - 2) - (fsinfo->free_clst))
                         #if _MAX_SS != 512
@@ -104,9 +104,10 @@ namespace fs {
 };
 #define USESPIFLASH
 #ifdef USESPIFLASH
-const sfud_flash* flash = NULL;
+const sfud_flash* flash = (sfud_flash*)malloc(sizeof(sfud_flash));
 
 DSTATUS disk_initialize(uint8_t pdrv){
+    // SEEED_FS_DEBUG("The available drive number : %d",pdrv);
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (!(flash_t->status & STA_NOINIT)) {
         return flash_t->status;
@@ -114,7 +115,7 @@ DSTATUS disk_initialize(uint8_t pdrv){
     if(sfud_init()==SFUD_SUCCESS){
         flash_t->status &= ~STA_NOINIT;
         flash = sfud_get_device_table() + 0;
-        flash_t->sectors = flash->chip.capacity / SECTORSIZE;
+        flash_t->sectors = flash->chip.capacity / flash_t->sector_size;
         flash_t->type = FLASH_SPI;
         return flash_t->status;
     }
@@ -131,15 +132,8 @@ DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
         return RES_NOTRDY;
     }
     DRESULT res = RES_OK;
-    // for(;count>0;count--){
-    //     if (sfud_read(flash,sector*SECTORSIZE,SECTORSIZE,buffer)){
-    //         return RES_ERROR;
-    //     }
-    //     sector++;
-    //     buffer+=SECTORSIZE;
-    // }
-    sector = sector * SECTORSIZE;
-    count = count * SECTORSIZE;
+    sector = sector * flash_t->sector_size;
+    count = count * flash_t->sector_size;
     res = sfud_read(flash,sector,count,buffer) ? RES_ERROR : RES_OK;
     return res;
 }
@@ -149,8 +143,8 @@ DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count
         return RES_NOTRDY;
     }
     DRESULT res = RES_OK;    
-    sector = SECTORSIZE*sector;
-    count = SECTORSIZE*count;
+    sector = sector * flash_t->sector_size;
+    count = count * flash_t->sector_size;
     res = sfud_erase_write(flash,sector,count,buffer) ? RES_ERROR : RES_OK;
     return res;
 }

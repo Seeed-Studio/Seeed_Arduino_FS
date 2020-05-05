@@ -76,14 +76,22 @@ namespace fs {
 
     size_t File::write(const uint8_t* buf, size_t size) {
         UINT t;
+        FRESULT ret = FR_OK;
         if (!_file) {
-            return 0;
+            return false;
         }
-        if (f_write(_file, buf, size, &t) == -1) { // if success, return the number of bytes have written.
-            return 0;
-        } else {
+        ret = f_write(_file, buf, size, &t);
+        SEEED_FS_DEBUG("The status of f_write : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        if (FR_OK == ret){
             return t;
         }
+        return false;
+        // if (f_write(_file, buf, size, &t) == -1) { // if success, return the number of bytes have written.
+        //     return 0;
+        // } else {
+        //     return t;
+        // }
     }
 
     //return the peek value
@@ -329,6 +337,8 @@ namespace fs {
     boolean FS::mkdir(const char* filepath) {
         FRESULT ret = FR_OK;
         ret = f_mkdir(filepath);
+        SEEED_FS_DEBUG("The status of mkdir : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (ret == FR_OK) {
             return true;
         } else {
@@ -339,6 +349,8 @@ namespace fs {
     boolean FS::rename(const char* pathFrom, const char* pathTo) {
         FRESULT ret = FR_OK;
         ret = f_rename(pathFrom, pathTo);
+        SEEED_FS_DEBUG("The status of rename : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (ret == FR_OK) {
             return true;
         } else {
