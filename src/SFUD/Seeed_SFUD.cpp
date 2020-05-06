@@ -17,17 +17,21 @@ namespace fs {
         SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
         flash_t->ssPin = ssPin;
+        chipSelectPin = flash_t->ssPin;
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
         flash_t->sector_size = SECTORSIZE;
         s_sfuds[_pdrv] = flash_t;
         FRESULT status;
         status = f_mount(&root, _T("0:"), 1);
-        SEEED_FS_DEBUG("The status of mount : %d",status);
+        SEEED_FS_DEBUG("The status of f_mount : %d",status);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (status == FR_NO_FILESYSTEM){
             BYTE work[1024]; /* Work area (larger is better for processing time) */
-            f_mkfs(_T("0:"), FM_ANY, 0, work, sizeof(work));
+            FRESULT ret;
+            ret = f_mkfs(_T("0:"), FM_FAT, 0, work, sizeof(work));
+            SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
+            SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
             status = f_mount(&root, _T("0:"), 1);
         }
         if (status != FR_OK) {

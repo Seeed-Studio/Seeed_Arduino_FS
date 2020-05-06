@@ -201,7 +201,7 @@ void setup() {
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
     while (!SERIAL) {};
-    while (!DEV.begin(1, SPI, 12500000)) {
+    while (!DEV.begin(SDCARD_SS_PIN, SDCARD_SPI, 12500000)) {
         SERIAL.println("Card Mount Failed");
         return;
     }
