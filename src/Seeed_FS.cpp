@@ -87,11 +87,6 @@ namespace fs {
             return t;
         }
         return false;
-        // if (f_write(_file, buf, size, &t) == -1) { // if success, return the number of bytes have written.
-        //     return 0;
-        // } else {
-        //     return t;
-        // }
     }
 
     //return the peek value

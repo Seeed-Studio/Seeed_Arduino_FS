@@ -21,12 +21,7 @@ namespace fs {
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
         flash_t->sector_size = SECTORSIZE;    
-        s_sfuds[_pdrv] = flash_t;
-        BYTE work[512]; /* Work area (larger is better for processing time) */
-        FRESULT ret;
-        ret = f_mkfs(_T("0:"), FM_FAT, 0, work, sizeof(work));
-        SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
-        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");         
+        s_sfuds[_pdrv] = flash_t;     
         FRESULT status;
         status = f_mount(&root, _T("0:"), 1);
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
@@ -98,9 +93,10 @@ namespace fs {
     uint64_t SFUDFS::usedBytes() {
         FATFS* fsinfo;
         DWORD free_clust;
-        if (f_getfree(_T("0:"), &free_clust, &fsinfo) != 0) {
-            return false;
-        }
+        FRESULT ret = FR_OK;
+        ret = f_getfree(_T("0:"), &free_clust, &fsinfo);
+        SEEED_FS_DEBUG("The status of f_getfree : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         uint64_t size = ((uint64_t)(fsinfo->csize)) * ((fsinfo->n_fatent - 2) - (fsinfo->free_clst))
                         #if _MAX_SS != 512
                         * (fsinfo->ssize);
@@ -125,7 +121,9 @@ DSTATUS disk_initialize(uint8_t pdrv){
         flash_t->status &= ~STA_NOINIT;
         flash = sfud_get_device_table() + 0;
         flash_t->sectors = flash->chip.capacity / flash_t->sector_size;
+#ifdef SFUD_USING_QSPI
         sfud_qspi_fast_read_enable(sfud_get_device(0), 2);
+#endif
         flash_t->type = FLASH_SPI;
         return flash_t->status;
     }

@@ -103,12 +103,15 @@ void writeFile(fs::FS& fs, const char* path, const char* message) {
         SERIAL.println("Failed to open file for writing");
         return;
     }
+    
     if (file.print(message)) {
         SERIAL.println("File written");
     } else {
         SERIAL.println("Write failed");
     }
+
     file.close();
+
 }
 
 void appendFile(fs::FS& fs, const char* path, const char* message) {
@@ -154,12 +157,12 @@ void testFileIO(fs::FS& fs, const char* path) {
     File file = fs.open(path);
     static uint8_t buf[512];
     size_t len = 0;
-    uint32_t start = millis();
+    uint32_t start = micros();
     uint32_t end = start;
     if (file) {
         len = file.size();
         size_t flen = len;
-        start = millis();
+        start = micros();
         while (len) {
             size_t toRead = len;
             if (toRead > 512) {
@@ -168,32 +171,15 @@ void testFileIO(fs::FS& fs, const char* path) {
             file.read(buf, toRead);
             len -= toRead;
         }
-        end = millis() - start;
+        end = micros() - start;
         SERIAL.print(flen);
         SERIAL.print(" bytes read for ");
         SERIAL.print(end);
-        SERIAL.println(" ms");
+        SERIAL.println(" ns");
         file.close();
     } else {
         SERIAL.println("Failed to open file for reading");
     }
-
-
-    file = fs.open(path, FILE_WRITE);
-    if (!file) {
-        SERIAL.println("Failed to open file for writing");
-        return;
-    }
-
-    size_t i;
-    start = millis();
-    file.write(buf, 512);
-    end = millis() - start;
-    SERIAL.print(512);
-    SERIAL.print(" bytes write for ");
-    SERIAL.print(end);
-    SERIAL.println(" ms");
-    file.close();
 }
 
 void setup() {
@@ -201,7 +187,7 @@ void setup() {
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
     while (!SERIAL) {};
-    while (!DEV.begin(SDCARD_SS_PIN, SDCARD_SPI, 12500000)) {
+    while (!DEV.begin(1, SPI, 12500000)) {
         SERIAL.println("Card Mount Failed");
         return;
     }
@@ -244,12 +230,14 @@ void setup() {
     deleteFile(DEV, "/foo.txt");
     renameFile(DEV, "/hello.txt", "/foo.txt");
     readFile(DEV, "/foo.txt");
-    testFileIO(DEV, "/test.txt");
+    testFileIO(DEV, "/foo.txt");
+    uint32_t totalBytes = DEV.totalBytes();
     SERIAL.print("Total space: ");
-    SERIAL.print((uint32_t)DEV.totalBytes() / (1024 * 1024));
+    SERIAL.print(totalBytes / (1024 * 1024));
     SERIAL.println("MB");
+    uint32_t usedBytes = DEV.usedBytes();
     SERIAL.print("Used space: ");
-    SERIAL.print((uint32_t)DEV.usedBytes() / (1024 * 1024));
+    SERIAL.print(usedBytes / (1024 * 1024));
     SERIAL.println("MB");
 }
 
