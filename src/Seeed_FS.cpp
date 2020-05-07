@@ -337,7 +337,7 @@ namespace fs {
     boolean FS::mkdir(const char* filepath) {
         FRESULT ret = FR_OK;
         ret = f_mkdir(filepath);
-        SEEED_FS_DEBUG("The status of mkdir : %d",ret);
+        SEEED_FS_DEBUG("The status of f_mkdir : %d",ret);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (ret == FR_OK) {
             return true;
