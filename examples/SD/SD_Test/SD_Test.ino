@@ -187,10 +187,18 @@ void setup() {
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
     while (!SERIAL) {};
-    while (!DEV.begin(1, SPI, 12500000)) {
+#ifdef SFUD_USING_QSPI
+    while (!DEV.begin(104000000UL)) {
         SERIAL.println("Card Mount Failed");
         return;
     }
+#else
+    while (!DEV.begin(1,SPI,4000000UL)) {
+        SERIAL.println("Card Mount Failed");
+        return;
+    }
+#endif 
+
 
 #ifdef USESPIFLASH
     uint8_t flashType = DEV.flashType();

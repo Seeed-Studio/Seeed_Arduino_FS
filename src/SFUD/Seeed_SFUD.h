@@ -44,13 +44,14 @@ namespace fs {
     class SFUDFS : public FS {
       private:
         uint8_t _pdrv;
+        boolean init();
       public:
         SFUDFS() {}
         ~SFUDFS() {}
         // This needs to be called to set up the connection to the SD card
         // before other methods are used.
-        boolean begin(uint8_t ssPin = 1, SPIClass& spi = SPI, int hz = 4000000);
-        // boolean begin(uint8_t ssPin , SPIClass& spi, int hz);
+        boolean begin(uint8_t ssPin, SPIClass& spi, int hz); //SPI
+        boolean begin(int hz); //QSPI
         //call this when a card is removed. It will allow you to insert and initialise a new card.
         boolean end();
 

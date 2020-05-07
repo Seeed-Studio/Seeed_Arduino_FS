@@ -10,14 +10,22 @@
 namespace fs {
 
     boolean SFUDFS::begin(uint8_t ssPin, SPIClass& spi, int hz) {
+        #define SPIDEV *spi
+        chipSelectPin = ssPin;
+        SPIclock = hz;
+        return init();
+    }
+    boolean SFUDFS::begin(int hz){
+        QSPIclock = hz;
+        return init();
+    }
+    boolean SFUDFS::init(void){
         _pdrv = 0xff;
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
         }      
         SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
-        flash_t->ssPin = ssPin;
-        chipSelectPin = flash_t->ssPin;
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
         flash_t->sector_size = SECTORSIZE;    
