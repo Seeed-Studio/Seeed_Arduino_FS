@@ -427,7 +427,7 @@ unsigned long sdGetSectorsCount(uint8_t pdrv) {
     sdDeselectCard(pdrv);
     return 0;
 }
-#define USESPIFLASH
+
 #ifndef USESPIFLASH
 /*
     FATFS API

@@ -115,7 +115,6 @@ namespace fs {
     }
     SFUDFS SPIFLASH;
 };
-#define USESPIFLASH
 #ifdef USESPIFLASH
 const sfud_flash* flash = (sfud_flash*)malloc(sizeof(sfud_flash));
 

@@ -10,7 +10,6 @@
 
 #include <Seeed_FS.h>
 
-#define USESPIFLASH
 #ifdef USESPIFLASH
 #define DEV SPIFLASH
 #include "SFUD/Seeed_SFUD.h"
@@ -21,7 +20,7 @@
 
 #define SERIAL Serial
 
-#define csPin 4
+#define csPin 1
 #ifdef ARDUINO_ARCH_SAMD
     #undef SERIAL Serial
     #define SERIAL SerialUSB
@@ -193,7 +192,7 @@ void setup() {
         return;
     }
 #else
-    while (!DEV.begin(1,SPI,4000000UL)) {
+    while (!DEV.begin(csPin,SPI,4000000UL)) {
         SERIAL.println("Card Mount Failed");
         return;
     }

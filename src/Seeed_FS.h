@@ -37,7 +37,7 @@
 #define FILE_WRITE (FA_CREATE_ALWAYS | FA_WRITE | FA_READ)
 #define FILE_APPEND (FA_OPEN_APPEND | FA_WRITE)
 
-#define SEEEDFS_DEBUG_MODE
+// #define SEEEDFS_DEBUG_MODE
 /* debug print function. Must be implement by user. */
 
 
@@ -54,7 +54,7 @@ void seeed_fs_log_debug(const char *file, const long line, const char *format, .
 void seeed_fs_log_info(const char *file, const long line, const char *format, ...);
 #define SEEED_FS_INFO(...)  seeed_fs_log_info(__VA_ARGS__)
 #endif
-
+#define USESPIFLASH
 #include "fatfs/ff.h"
 #ifdef KENDRYTE_K210
     #include <SPIClass.h>

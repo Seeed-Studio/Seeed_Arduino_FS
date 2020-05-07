@@ -6,7 +6,7 @@
 #else
     #include "SPI.h"
 #endif
-
+#include <Seeed_FS.h>
 #include "Arduino.h"
 
 typedef enum {
