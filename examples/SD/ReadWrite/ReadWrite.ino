@@ -35,7 +35,6 @@
     #define SERIAL SerialUSB
 #endif
 
-File ROOT;
 
 void setup() {
     SERIAL.begin(115200);
@@ -57,31 +56,31 @@ void setup() {
 
     // open the file. note that only one file can be open at a time,
     // so you have to close this one before opening another.
-    ROOT = DEV.open("test.txt", FILE_WRITE);
+    File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
 
     // if the file opened okay, write to it:
-    if (ROOT) {
+    if (RootWrite) {
         SERIAL.print("Writing to test.txt...");
-        ROOT.println("testing 1, 2, 3.");
+        RootWrite.println("testing 1, 2, 3.");
         // close the file:
-        ROOT.close();
+        RootWrite.close();
         SERIAL.println("done.");
     } else {
         // if the file didn't open, print an error:
         SERIAL.println("error opening test.txt");
     }
-
+    
     // re-open the file for reading:
-    ROOT = DEV.open("test.txt");
-    if (ROOT) {
+    File RootRead= DEV.open("/hello.txt");
+    if (RootRead) {
         SERIAL.println("test.txt:");
 
         // read from the file until there's nothing else in it:
-        while (ROOT.available()) {
-            SERIAL.write(ROOT.read());
+        while (RootRead.available()) {
+            SERIAL.write(RootRead.read());
         }
         // close the file:
-        ROOT.close();
+        RootRead.close();
     } else {
         // if the file didn't open, print an error:
         SERIAL.println("error opening test.txt");

@@ -23,26 +23,23 @@
     This example code is in the public domain.
 
 */
-#ifdef KENDRYTE_K210
-    #include <SPIClass.h>
-#else
-    #include <SPI.h>
-#endif
 #include <Seeed_FS.h>
-#include "SD/Seeed_SD.h"
 
 #define SERIAL Serial
+
+#ifdef USESPIFLASH
+#define DEV SPIFLASH
+#include "SFUD/Seeed_SFUD.h"
+#else
+#define DEV SD
+#include "SD/Seeed_SD.h"
+#endif 
 
 #define csPin 4
 #ifdef ARDUINO_ARCH_SAMD
     #undef SERIAL Serial
     #define SERIAL SerialUSB
 #endif
-
-
-File root;
-
-
 
 void setup() {
     // Open SERIAL communications and wait for port to open:
@@ -53,15 +50,20 @@ void setup() {
 
     SERIAL.print("Initializing SD card...");
 
-    if (!SD.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
-        SERIAL.println("initialization failed!");
-        while (1);
+#ifdef SFUD_USING_QSPI
+    while (!DEV.begin(104000000UL)) {
+        SERIAL.println("Card Mount Failed");
+        return;
     }
+#else
+    while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
+        SERIAL.println("Card Mount Failed");
+        return;
+    }
+#endif 
     SERIAL.println("initialization done.");
 
-    root = SD.open("/");
-
-    printDirectory(root, 0);
+    listDir(DEV, "/", 0);
 
     SERIAL.println("done!");
 }
@@ -69,28 +71,35 @@ void setup() {
 void loop() {
     // nothing happens after setup finishes.
 }
+void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
+    SERIAL.print("Listing directory: ");
+    SERIAL.println(dirname);
 
-void printDirectory(File dir, int numTabs) {
-    while (true) {
+    File root = fs.open(dirname);
+    if (!root) {
+        SERIAL.println("Failed to open directory");
+        return;
+    }
+    if (!root.isDirectory()) {
+        SERIAL.println("Not a directory");
+        return;
+    }
 
-        File entry =  dir.openNextFile();
-        if (! entry) {
-            // no more files
-            break;
-        }
-        for (uint8_t i = 0; i < numTabs; i++) {
-            SERIAL.print('\t');
-        }
-        SERIAL.print(entry.name());
-        if (entry.isDirectory()) {
-            SERIAL.println("/");
-            printDirectory(entry, numTabs + 1);
+    File file = root.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            SERIAL.print("  DIR : ");
+            SERIAL.println(file.name());
+            if (levels) {
+                listDir(fs, file.name(), levels - 1);
+            }
         } else {
-            // files have sizes, directories do not
-            SERIAL.print("\t\t");
-            SERIAL.println(entry.size(), DEC);
+            SERIAL.print("  FILE: ");
+            SERIAL.print(file.name());
+            SERIAL.print("  SIZE: ");
+            SERIAL.println(file.size());
         }
-        entry.close();
+        file = root.openNextFile();
     }
 }
 
