@@ -59,7 +59,7 @@ namespace fs {
         File(FIL f, const char* name);     // wraps an underlying SdFile
         File(DIR d, const char* name);
         File(void);      // 'empty' constructor
-        ~File();
+        //~File();
         virtual size_t write(uint8_t);
         virtual size_t write(const uint8_t* buf, size_t size);
         virtual int read();
@@ -130,5 +130,6 @@ namespace fs {
 using namespace fs;
 
 #include "SD/Seeed_SD.h"
+
 
 #endif
