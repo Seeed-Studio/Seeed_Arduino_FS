@@ -54,7 +54,7 @@ void seeed_fs_log_debug(const char *file, const long line, const char *format, .
 void seeed_fs_log_info(const char *file, const long line, const char *format, ...);
 #define SEEED_FS_INFO(...)  seeed_fs_log_info(__VA_ARGS__)
 #endif
-#define USESPIFLASH
+// #define USESPIFLASH
 #include "fatfs/ff.h"
 #ifdef KENDRYTE_K210
     #include <SPIClass.h>

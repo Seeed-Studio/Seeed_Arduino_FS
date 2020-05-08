@@ -29,7 +29,7 @@
 #include "SD/Seeed_SD.h"
 #endif 
 
-#define csPin 1
+#define csPin 4
 #ifdef ARDUINO_ARCH_SAMD
     #undef SERIAL Serial
     #define SERIAL SerialUSB
@@ -48,7 +48,7 @@ void setup() {
         return;
     }
 #else
-    while (!DEV.begin(csPin,SPI,4000000UL)) {
+    while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
         SERIAL.println("Card Mount Failed");
         return;
     }

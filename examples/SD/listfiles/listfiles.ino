@@ -53,7 +53,7 @@ void setup() {
 
     SERIAL.print("Initializing SD card...");
 
-    if (!SD.begin(csPin)) {
+    if (!SD.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
         SERIAL.println("initialization failed!");
         while (1);
     }

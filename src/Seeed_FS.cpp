@@ -87,6 +87,14 @@ namespace fs {
             return t;
         }
         return false;
+        // ret = f_write(_file, buf, size, &t);
+        // SEEED_FS_DEBUG("The status of f_write : %d",ret);
+        // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        // if (FR_OK == ret){
+        //     return t;
+        // }
+        // return false;
+
     }
 
     //return the peek value
