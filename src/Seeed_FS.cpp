@@ -40,10 +40,13 @@ namespace fs {
         _fno = NULL;
     }
 
-    // File::~File() {
-    //     close();
-    //     delete _fno;
-    // }
+    File::~File() {
+        close();
+        if (_fno) {
+            delete _fno;
+            _fno = NULL;
+        }
+    }
 
     // returns a pointer to the file name
     char* File::name(void) {

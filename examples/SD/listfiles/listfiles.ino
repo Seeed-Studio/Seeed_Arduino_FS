@@ -34,11 +34,6 @@
 #define SERIAL Serial
 
 #define csPin 4
-#ifdef ARDUINO_ARCH_SAMD
-    #undef SERIAL Serial
-    #define SERIAL SerialUSB
-#endif
-
 
 File root;
 
