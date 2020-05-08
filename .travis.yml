@@ -2,8 +2,6 @@ language: generic
 matrix:
   include:
     - env:
-        - BOARD="arduino:avr:uno"
-    - env:
         - BOARD="Seeeduino:samd:seeed_XIAO_m0"
     - env:
         - BOARD="Seeeduino:samd:seeed_grove_ui_wireless"
