@@ -667,7 +667,9 @@ uint8_t sdcard_unmount(uint8_t pdrv) {
     card->status |= STA_NOINIT;
     card->type = CARD_NONE;
 
-    f_mount(NULL, "0:", 0);
+    TCHAR drv[3] = {_T('0' + pdrv), _T(':'), _T('0')};
+    
+    f_mount(NULL, drv, 0);
     return 0;
 }
 
@@ -679,8 +681,8 @@ bool sdcard_mount(uint8_t pdrv) {
     }
 
     FATFS fs;
-
-    FRESULT res = f_mount(&fs, _T("0"), 1);
+    TCHAR drv[3] = {_T('0' + pdrv), _T(':'), _T('0')};
+    FRESULT res = f_mount(&fs, drv, 1);
     if (res != FR_OK) {
         return false;
     }
