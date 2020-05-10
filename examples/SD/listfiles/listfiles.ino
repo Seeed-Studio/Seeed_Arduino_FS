@@ -36,10 +36,10 @@
 #endif 
 
 #define csPin 4
-#ifdef ARDUINO_ARCH_SAMD
-    #undef SERIAL Serial
-    #define SERIAL SerialUSB
-#endif
+
+File root;
+
+
 
 void setup() {
     // Open SERIAL communications and wait for port to open:

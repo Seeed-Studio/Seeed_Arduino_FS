@@ -42,7 +42,10 @@ namespace fs {
 
     File::~File() {
         close();
-        delete _fno;
+        if (_fno) {
+            delete _fno;
+            _fno = NULL;
+        }
     }
 
     // returns a pointer to the file name
