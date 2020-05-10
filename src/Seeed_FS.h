@@ -37,8 +37,30 @@
 #define FILE_WRITE (FA_CREATE_ALWAYS | FA_WRITE | FA_READ)
 #define FILE_APPEND (FA_OPEN_APPEND | FA_WRITE)
 
-#include "fatfs/ff.h"
+// #define SEEEDFS_DEBUG_MODE
+/* debug print function. Must be implement by user. */
 
+
+#ifdef SEEEDFS_DEBUG_MODE
+void seeed_fs_log_debug(const char *file, const long line, const char *format, ...);
+#ifndef SEEED_FS_DEBUG
+#define SEEED_FS_DEBUG(...) seeed_fs_log_debug(__FILE__, __LINE__, __VA_ARGS__)
+#endif /* SEEEDFS_DEBUG */
+#else
+#define SEEED_FS_DEBUG(...)
+#endif /* SEEEDFS_DEBUG_MODE */
+
+#ifndef SEEED_FS_INFO
+void seeed_fs_log_info(const char *file, const long line, const char *format, ...);
+#define SEEED_FS_INFO(...)  seeed_fs_log_info(__VA_ARGS__)
+#endif
+// #define USESPIFLASH
+#include "fatfs/ff.h"
+#ifdef KENDRYTE_K210
+    #include <SPIClass.h>
+#else
+    #include <SPI.h>
+#endif
 namespace fs {
 
     enum SeekMode {
@@ -129,7 +151,6 @@ namespace fs {
 };
 using namespace fs;
 
-#include "SD/Seeed_SD.h"
 
 
 #endif

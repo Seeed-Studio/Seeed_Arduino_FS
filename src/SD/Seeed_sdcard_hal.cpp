@@ -1,4 +1,3 @@
-
 #include "Seeed_sdcard_hal.h"
 #include "Arduino.h"
 
@@ -429,6 +428,7 @@ unsigned long sdGetSectorsCount(uint8_t pdrv) {
     return 0;
 }
 
+#ifndef USESPIFLASH
 /*
     FATFS API
  * */
@@ -713,3 +713,4 @@ sdcard_type_t sdcard_type(uint8_t pdrv) {
     }
     return card->type;
 }
+#endif

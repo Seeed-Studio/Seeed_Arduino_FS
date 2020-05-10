@@ -8,22 +8,23 @@
  ** CS - pin 4 (for MKRZero SD: SDCARD_SS_PIN)
 */
 
-#ifdef KENDRYTE_K210
-    #include <SPIClass.h>
-#else
-    #include <SPI.h>
-#endif
 #include <Seeed_FS.h>
+
+#ifdef USESPIFLASH
+#define DEV SPIFLASH
+#include "SFUD/Seeed_SFUD.h"
+#else
+#define DEV SD
 #include "SD/Seeed_SD.h"
+#endif 
 
 #define SERIAL Serial
+#define csPin 1
 
-#define csPin 4
 #ifdef ARDUINO_ARCH_SAMD
     #undef SERIAL Serial
     #define SERIAL SerialUSB
 #endif
-
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     SERIAL.print("Listing directory: ");
@@ -101,12 +102,15 @@ void writeFile(fs::FS& fs, const char* path, const char* message) {
         SERIAL.println("Failed to open file for writing");
         return;
     }
+    
     if (file.print(message)) {
         SERIAL.println("File written");
     } else {
         SERIAL.println("Write failed");
     }
+
     file.close();
+
 }
 
 void appendFile(fs::FS& fs, const char* path, const char* message) {
@@ -152,12 +156,12 @@ void testFileIO(fs::FS& fs, const char* path) {
     File file = fs.open(path);
     static uint8_t buf[512];
     size_t len = 0;
-    uint32_t start = millis();
+    uint32_t start = micros();
     uint32_t end = start;
     if (file) {
         len = file.size();
         size_t flen = len;
-        start = millis();
+        start = micros();
         while (len) {
             size_t toRead = len;
             if (toRead > 512) {
@@ -166,34 +170,15 @@ void testFileIO(fs::FS& fs, const char* path) {
             file.read(buf, toRead);
             len -= toRead;
         }
-        end = millis() - start;
+        end = micros() - start;
         SERIAL.print(flen);
         SERIAL.print(" bytes read for ");
         SERIAL.print(end);
-        SERIAL.println(" ms");
+        SERIAL.println(" ns");
         file.close();
     } else {
         SERIAL.println("Failed to open file for reading");
     }
-
-
-    file = fs.open(path, FILE_WRITE);
-    if (!file) {
-        SERIAL.println("Failed to open file for writing");
-        return;
-    }
-
-    size_t i;
-    start = millis();
-    for (i = 0; i < 2048; i++) {
-        file.write(buf, 512);
-    }
-    end = millis() - start;
-    SERIAL.print(2048 * 512);
-    SERIAL.print(" bytes read for ");
-    SERIAL.print(end);
-    SERIAL.println(" ms");
-    file.close();
 }
 
 void setup() {
@@ -201,44 +186,68 @@ void setup() {
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
     while (!SERIAL) {};
-    while (!SD.begin(csPin, SPI, 12500000)) {
+#ifdef SFUD_USING_QSPI
+    while (!DEV.begin(104000000UL)) {
         SERIAL.println("Card Mount Failed");
         return;
     }
+#else
+    while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
+        SERIAL.println("Card Mount Failed");
+        return;
+    }
+#endif 
 
-    uint8_t cardType = SD.cardType();
 
+#ifdef USESPIFLASH
+    uint8_t flashType = DEV.flashType();
+    if (flashType == FLASH_NONE) {
+        SERIAL.println("No SD card attached");
+        return;
+    }
+#else
+    uint8_t cardType = DEV.cardType();
     if (cardType == CARD_NONE) {
         SERIAL.println("No SD card attached");
         return;
     }
+#endif 
 
-    uint64_t cardSize = SD.cardSize() / (1024 * 1024);
-
+#ifdef USESPIFLASH
+    uint8_t flashSize = DEV.flashSize() / (1024 * 1024);
+    SERIAL.print("SD Card Size: ");
+    SERIAL.print((uint32_t)flashSize);
+    SERIAL.println("MB");
+#else
+    uint64_t cardSize = DEV.cardSize() / (1024 * 1024);
     SERIAL.print("SD Card Size: ");
     SERIAL.print((uint32_t)cardSize);
     SERIAL.println("MB");
+#endif 
 
-    listDir(SD, "/", 0);
-    createDir(SD, "/mydir");
-    listDir(SD, "/", 0);
-    removeDir(SD, "/mydir");
-    listDir(SD, "/", 2);
-    writeFile(SD, "/hello.txt", "Hello ");
-    appendFile(SD, "/hello.txt", "World!\n");
-    readFile(SD, "/hello.txt");
-    deleteFile(SD, "/foo.txt");
-    renameFile(SD, "/hello.txt", "/foo.txt");
-    readFile(SD, "/foo.txt");
-    testFileIO(SD, "/test.txt");
+
+    listDir(DEV, "/", 0);
+    createDir(DEV, "/mydir");
+    listDir(DEV, "/", 0);
+    removeDir(DEV, "/mydir");
+    listDir(DEV, "/", 2);
+    writeFile(DEV, "/hello.txt", "Hello ");
+    appendFile(DEV, "/hello.txt", "World!\n");
+    readFile(DEV, "/hello.txt");
+    deleteFile(DEV, "/foo.txt");
+    renameFile(DEV, "/hello.txt", "/foo.txt");
+    readFile(DEV, "/foo.txt");
+    testFileIO(DEV, "/foo.txt");
+    uint32_t totalBytes = DEV.totalBytes();
     SERIAL.print("Total space: ");
-    SERIAL.print((uint32_t)SD.totalBytes() / (1024 * 1024));
+    SERIAL.print(totalBytes / (1024 * 1024));
     SERIAL.println("MB");
+    uint32_t usedBytes = DEV.usedBytes();
     SERIAL.print("Used space: ");
-    SERIAL.print((uint32_t)SD.usedBytes() / (1024 * 1024));
+    SERIAL.print(usedBytes / (1024 * 1024));
     SERIAL.println("MB");
 }
 
 void loop() {
-
+    
 }

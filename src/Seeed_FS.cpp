@@ -79,14 +79,25 @@ namespace fs {
 
     size_t File::write(const uint8_t* buf, size_t size) {
         UINT t;
+        FRESULT ret = FR_OK;
         if (!_file) {
-            return 0;
+            return false;
         }
-        if (f_write(_file, buf, size, &t) == -1) { // if success, return the number of bytes have written.
-            return 0;
-        } else {
+        ret = f_write(_file, buf, size, &t);
+        SEEED_FS_DEBUG("The status of f_write : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        if (FR_OK == ret){
             return t;
         }
+        return false;
+        // ret = f_write(_file, buf, size, &t);
+        // SEEED_FS_DEBUG("The status of f_write : %d",ret);
+        // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        // if (FR_OK == ret){
+        //     return t;
+        // }
+        // return false;
+
     }
 
     //return the peek value
@@ -332,6 +343,8 @@ namespace fs {
     boolean FS::mkdir(const char* filepath) {
         FRESULT ret = FR_OK;
         ret = f_mkdir(filepath);
+        SEEED_FS_DEBUG("The status of f_mkdir : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (ret == FR_OK) {
             return true;
         } else {
@@ -342,6 +355,8 @@ namespace fs {
     boolean FS::rename(const char* pathFrom, const char* pathTo) {
         FRESULT ret = FR_OK;
         ret = f_rename(pathFrom, pathTo);
+        SEEED_FS_DEBUG("The status of rename : %d",ret);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (ret == FR_OK) {
             return true;
         } else {
@@ -382,3 +397,44 @@ namespace fs {
         }
     }
 }; // namespace fs
+static char log_buf[256];
+/**
+ * This function is print debug info.
+ *
+ * @param file the file which has call this function
+ * @param line the line number which has call this function
+ * @param format output format
+ * @param ... args
+ */
+void seeed_fs_log_debug(const char *file, const long line, const char *format, ...) {
+    va_list args;
+
+    /* args point to the first variable parameter */
+    va_start(args, format);
+
+    printf("[SEEED_FS](%s:%ld) ", file, line);
+    /* must use vprintf to print */
+    vsnprintf(log_buf, sizeof(log_buf), format, args);
+
+    printf("%s\n", log_buf);
+    va_end(args);
+}
+
+/**
+ * This function is print routine info.
+ *
+ * @param format output format
+ * @param ... args
+ */
+void seeed_fs_log_info(const char *format, ...) {
+    va_list args;
+
+    /* args point to the first variable parameter */
+    va_start(args, format);
+    printf("[SEEED_FS]");
+    /* must use vprintf to print */
+    vsnprintf(log_buf, sizeof(log_buf), format, args);
+    printf("%s\n", log_buf);
+    va_end(args);
+}
+
