@@ -40,7 +40,6 @@
 // #define SEEEDFS_DEBUG_MODE
 /* debug print function. Must be implement by user. */
 
-
 #ifdef SEEEDFS_DEBUG_MODE
 void seeed_fs_log_debug(const char *file, const long line, const char *format, ...);
 #ifndef SEEED_FS_DEBUG
@@ -54,7 +53,7 @@ void seeed_fs_log_debug(const char *file, const long line, const char *format, .
 void seeed_fs_log_info(const char *file, const long line, const char *format, ...);
 #define SEEED_FS_INFO(...)  seeed_fs_log_info(__VA_ARGS__)
 #endif
-// #define USESPIFLASH
+#define USESPIFLASH
 #include "fatfs/ff.h"
 #ifdef KENDRYTE_K210
     #include <SPIClass.h>
@@ -105,7 +104,8 @@ namespace fs {
     };
     class FS {
       protected:
-        FATFS root;
+        FATFS rootSD;
+        FATFS rootFLASH;
       public:
         // Open the specified file/directory with the supplied mode (e.g. read or
         // write, etc). Returns a File object for interacting with the file.

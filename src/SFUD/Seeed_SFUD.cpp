@@ -30,7 +30,6 @@ namespace fs {
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
         }      
-        SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
@@ -46,7 +45,8 @@ namespace fs {
         ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
         _drv[0] = _T('0' + _pdrv);
-        status = f_mount(&root, _drv, 1);
+        status = f_mount(&rootFLASH, _drv, 1);
+        SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (status == FR_NO_FILESYSTEM){
@@ -55,7 +55,7 @@ namespace fs {
             ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
             SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
             SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
-            status = f_mount(&root,_drv, 1);
+            status = f_mount(&rootFLASH,_drv, 1);
         }
         if (status != FR_OK) {
             return false;
@@ -135,7 +135,6 @@ namespace fs {
 const sfud_flash* flash = (sfud_flash*)malloc(sizeof(sfud_flash));
 
 DSTATUS flash_disk_initialize(uint8_t pdrv){
-    // SEEED_FS_DEBUG("The available drive number : %d",pdrv);
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (!(flash_t->status & STA_NOINIT)) {
         return flash_t->status;

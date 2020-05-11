@@ -44,7 +44,7 @@ namespace fs {
     class SFUDFS : public FS {
       private:
         uint8_t _pdrv;
-        TCHAR _drv[3] = {_T('0' + _pdrv), _T(':'), _T('0')};
+        TCHAR _drv[2] = {_T('0' + _pdrv), _T(':')};
         boolean init();
       public:
         SFUDFS() {}

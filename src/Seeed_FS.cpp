@@ -263,15 +263,32 @@ namespace fs {
         FRESULT ret = FR_OK;
         FILINFO v_fileinfo;
 
-        if (!strcmp(filepath, "/")) {
+        if (!strcmp(filepath, "1:/")) {
             DIR dir;
-            if ((ret = f_opendir(&dir, _T("/"))) == FR_OK) {
+            TCHAR _drv[3] = {_T('0' + 1), _T(':'),_T('/')};
+            if ((ret = f_opendir(&dir, _drv)) == FR_OK) {
                 return File(dir, filepath);
             } else {
                 return File();
             }
         }
-
+        if(!strcmp(filepath, "0:/")){
+            DIR dir;
+            TCHAR _drv[3] = {_T('0' + 0), _T(':'),_T('/')};
+            if ((ret = f_opendir(&dir, _drv)) == FR_OK) {
+                return File(dir, filepath);
+            } else {
+                return File();
+            }            
+        }
+        if(!strcmp(filepath, "/")){
+            DIR dir;
+            if ((ret = f_opendir(&dir, _T("/"))) == FR_OK) {
+                return File(dir, filepath);
+            } else {
+                return File();
+            }                
+        }
         if ((ret = f_stat(filepath, &v_fileinfo)) == FR_OK) {
             if (v_fileinfo.fattrib & AM_DIR) {
                 DIR dir;
