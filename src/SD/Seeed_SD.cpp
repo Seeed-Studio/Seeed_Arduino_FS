@@ -23,8 +23,8 @@ namespace fs {
         _pdrv = sdcard_init(ssPin, &spi, hz);
         spi.begin();
         FRESULT status;
-
-        status = f_mount(&root, _T("0:"), 1);
+        _drv[0] = _T('0' + _pdrv);
+        status = f_mount(&root, _drv, 1);
         if (status != FR_OK) {
             return false;
         } else {
@@ -34,7 +34,7 @@ namespace fs {
 
     void SDFS::end() {
         if (_pdrv != 0xFF) {
-            f_mount(NULL, _T("0:"), 1);
+            f_mount(NULL, _drv, 1);
             sdcard_uninit(_pdrv);
             _pdrv = 0xFF;
         }
@@ -60,7 +60,7 @@ namespace fs {
     uint64_t SDFS::totalBytes() {
         FATFS* fsinfo;
         DWORD fre_clust;
-        if (f_getfree("0:", &fre_clust, &fsinfo) != 0) {
+        if (f_getfree(_drv, &fre_clust, &fsinfo) != 0) {
             return 0;
         }
         uint64_t size = ((uint64_t)(fsinfo->csize)) * (fsinfo->n_fatent - 2)
@@ -75,7 +75,7 @@ namespace fs {
     uint64_t SDFS::usedBytes() {
         FATFS* fsinfo;
         DWORD fre_clust;
-        if (f_getfree("0:", &fre_clust, &fsinfo) != 0) {
+        if (f_getfree(_drv, &fre_clust, &fsinfo) != 0) {
             return 0;
         }
         uint64_t size = ((uint64_t)(fsinfo->csize)) * ((fsinfo->n_fatent - 2) - (fsinfo->free_clst))

@@ -45,16 +45,17 @@ namespace fs {
         };
         ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
-        status = f_mount(&root, _T("0:"), 1);
+        _drv[0] = _T('0' + _pdrv);
+        status = f_mount(&root, _drv, 1);
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (status == FR_NO_FILESYSTEM){
             BYTE work[512]; /* Work area (larger is better for processing time) */
             FRESULT ret;
-            ret = f_mkfs(_T("0:"), FM_FAT, 0, work, sizeof(work));
+            ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
             SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
             SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
-            status = f_mount(&root, _T("0:"), 1);
+            status = f_mount(&root,_drv, 1);
         }
         if (status != FR_OK) {
             return false;
@@ -64,7 +65,8 @@ namespace fs {
     }
     boolean SFUDFS::end() {
         if (_pdrv != 0xFF) {
-            f_mount(NULL, _T("0:"), 1);
+            
+            f_mount(NULL, _drv, 1);
             ardu_sfud_t* flash_t = s_sfuds[_pdrv];
             if (_pdrv >= _VOLUMES || flash_t == NULL) {
                 return false;
@@ -101,7 +103,8 @@ namespace fs {
         FATFS* fsinfo;
         FRESULT ret = FR_OK;
         DWORD free_clust;
-        ret = f_getfree(_T("0:"), &free_clust, &fsinfo);
+        
+        ret = f_getfree(_drv, &free_clust, &fsinfo);
         SEEED_FS_DEBUG("The status of f_getfree : %d",ret);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         uint64_t size = ((uint64_t)(fsinfo->csize)) * (fsinfo->n_fatent - 2)
@@ -116,7 +119,7 @@ namespace fs {
         FATFS* fsinfo;
         DWORD free_clust;
         FRESULT ret = FR_OK;
-        ret = f_getfree(_T("0:"), &free_clust, &fsinfo);
+        ret = f_getfree(_drv, &free_clust, &fsinfo);
         SEEED_FS_DEBUG("The status of f_getfree : %d",ret);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         uint64_t size = ((uint64_t)(fsinfo->csize)) * ((fsinfo->n_fatent - 2) - (fsinfo->free_clst))
