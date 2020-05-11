@@ -29,11 +29,10 @@
 #include "SD/Seeed_SD.h"
 #endif 
 
-#define csPin 4
-#ifdef ARDUINO_ARCH_SAMD
-    #undef SERIAL Serial
-    #define SERIAL SerialUSB
-#endif
+#ifdef _SAMD21_
+#define SDCARD_SS_PIN 1
+#define SDCARD_SPI SPI
+#endif 
 
 
 void setup() {
@@ -57,25 +56,25 @@ void setup() {
     // open the file. note that only one file can be open at a time,
     // so you have to close this one before opening another.
 
-    myFile = SD.open("test.txt", 'w');
-
+    File RootWrite = DEV.open("/hello.txt", 'w');
+    // File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
 
     // if the file opened okay, write to it:
     if (RootWrite) {
-        SERIAL.print("Writing to test.txt...");
-        RootWrite.println("testing 1, 2, 3.");
+        SERIAL.print("Writing to hello.txt...");
+        RootWrite.println("hello 1, 2, 3.");
         // close the file:
         RootWrite.close();
         SERIAL.println("done.");
     } else {
         // if the file didn't open, print an error:
-        SERIAL.println("error opening test.txt");
+        SERIAL.println("error opening hello.txt");
     }
     
     // re-open the file for reading:
     File RootRead= DEV.open("/hello.txt");
     if (RootRead) {
-        SERIAL.println("test.txt:");
+        SERIAL.println("hello.txt:");
 
         // read from the file until there's nothing else in it:
         while (RootRead.available()) {
@@ -85,7 +84,7 @@ void setup() {
         RootRead.close();
     } else {
         // if the file didn't open, print an error:
-        SERIAL.println("error opening test.txt");
+        SERIAL.println("error opening hello.txt");
     }
 }
 

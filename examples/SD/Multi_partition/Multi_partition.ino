@@ -2,6 +2,12 @@
 #include "SFUD/Seeed_SFUD.h"
 #include "SD/Seeed_SD.h"
 #define SERIAL Serial
+
+#ifdef _SAMD21_
+#define SDCARD_SS_PIN 2
+#define SDCARD_SPI SPI
+#endif 
+
 void listDir(fs::FS& fs,const char* dirname, uint8_t levels) {
     SERIAL.print("Listing directory: ");
     SERIAL.println(dirname);

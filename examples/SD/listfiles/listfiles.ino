@@ -25,7 +25,7 @@
 */
 #include <Seeed_FS.h>
 
-#define SERIAL Serial
+
 
 #ifdef USESPIFLASH
 #define DEV SPIFLASH
@@ -35,11 +35,13 @@
 #include "SD/Seeed_SD.h"
 #endif 
 
-#define csPin 4
-
+#define SERIAL Serial
 File root;
 
-
+#ifdef _SAMD21_
+#define SDCARD_SS_PIN 1
+#define SDCARD_SPI SPI
+#endif 
 
 void setup() {
     // Open SERIAL communications and wait for port to open:

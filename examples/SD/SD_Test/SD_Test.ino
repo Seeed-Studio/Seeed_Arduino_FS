@@ -19,12 +19,12 @@
 #endif 
 
 #define SERIAL Serial
-#define csPin 1
 
-#ifdef ARDUINO_ARCH_SAMD
-    #undef SERIAL Serial
-    #define SERIAL SerialUSB
-#endif
+#ifdef _SAMD21_
+#define SDCARD_SS_PIN 1
+#define SDCARD_SPI SPI
+#endif 
+
 
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
     SERIAL.print("Listing directory: ");
