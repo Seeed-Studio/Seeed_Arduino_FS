@@ -49,7 +49,7 @@ typedef enum {
     CRC_ON_OFF              = 59
 } ardu_sdcard_command_t;
 
-static ardu_sdcard_t* s_cards[_VOLUMES] = { NULL };
+static ardu_sdcard_t* s_cards[_VOLUMES] = { NULL , NULL};
 
 namespace {
 
@@ -428,12 +428,11 @@ unsigned long sdGetSectorsCount(uint8_t pdrv) {
     return 0;
 }
 
-#ifndef USESPIFLASH
 /*
     FATFS API
  * */
 
-DSTATUS disk_initialize(uint8_t pdrv) {
+DSTATUS sd_disk_initialize(uint8_t pdrv) {
     char token;
     unsigned int resp;
     unsigned int start;
@@ -541,11 +540,11 @@ unknown_card:
 }
 
 
-DSTATUS disk_status(uint8_t pdrv) {
+DSTATUS sd_disk_status(uint8_t pdrv) {
     return s_cards[pdrv]->status;
 }
 
-DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
+DRESULT sd_disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sdcard_t* card = s_cards[pdrv];
     if (card->status & STA_NOINIT) {
         return RES_NOTRDY;
@@ -562,7 +561,7 @@ DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
     return res;
 }
 
-DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
+DRESULT sd_disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sdcard_t* card = s_cards[pdrv];
     if (card->status & STA_NOINIT) {
         return RES_NOTRDY;
@@ -582,7 +581,7 @@ DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count
     return res;
 }
 
-DRESULT disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
+DRESULT sd_disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
     switch (cmd) {
         case CTRL_SYNC: {
                 AcquireSPI lock(s_cards[pdrv]);
@@ -648,11 +647,11 @@ uint8_t sdcard_init(uint8_t cs, SPIClass* spi, int hz) {
     s_cards[pdrv] = card;
 
     static const ff_diskio_impl_t sd_impl = {
-        .init = &disk_initialize,
-        .status = &disk_status,
-        .read = &disk_read,
-        .write = &disk_write,
-        .ioctl = &disk_ioctl
+        .init = &sd_disk_initialize,
+        .status = &sd_disk_status,
+        .read = &sd_disk_read,
+        .write = &sd_disk_write,
+        .ioctl = &sd_disk_ioctl
     };
     ff_diskio_register(pdrv, &sd_impl);
 
@@ -713,4 +712,3 @@ sdcard_type_t sdcard_type(uint8_t pdrv) {
     }
     return card->type;
 }
-#endif

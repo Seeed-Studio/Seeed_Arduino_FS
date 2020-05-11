@@ -55,3 +55,24 @@ void ff_diskio_register(BYTE pdrv, const ff_diskio_impl_t* discio_impl)
     memcpy(impl, discio_impl, sizeof(ff_diskio_impl_t));
     s_impls[pdrv] = impl;
 }
+
+DSTATUS disk_initialize (BYTE pdrv)
+{
+    return s_impls[pdrv]->init(pdrv);
+}
+DSTATUS disk_status (BYTE pdrv)
+{
+    return s_impls[pdrv]->status(pdrv);
+}
+DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count)
+{
+    return s_impls[pdrv]->read(pdrv, buff, sector, count);
+}
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count)
+{
+    return s_impls[pdrv]->write(pdrv, buff, sector, count);
+}
+DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff)
+{
+    return s_impls[pdrv]->ioctl(pdrv, cmd, buff);
+}

@@ -7,6 +7,12 @@
 
 #include "Seeed_SFUD.h"
 
+DSTATUS flash_disk_initialize(BYTE pdrv);
+DSTATUS flash_disk_status(BYTE pdrv);
+DRESULT flash_disk_read(BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
+DRESULT flash_disk_write(BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+DRESULT flash_disk_ioctl(BYTE pdrv, BYTE cmd, void* buff);
+
 namespace fs {
 
     boolean SFUDFS::begin(uint8_t ssPin, SPIClass& spi, int hz) {
@@ -29,7 +35,15 @@ namespace fs {
         flash_t->type = FLASH_NONE;
         flash_t->status = STA_NOINIT;
         flash_t->sector_size = SECTORSIZE;    
-        s_sfuds[_pdrv] = flash_t;     
+        s_sfuds[_pdrv] = flash_t; 
+        static const ff_diskio_impl_t flash_impl = {
+            .init = &flash_disk_initialize,
+            .status = &flash_disk_status,
+            .read = &flash_disk_read,
+            .write = &flash_disk_write,
+            .ioctl = &flash_disk_ioctl
+        };
+        ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
         status = f_mount(&root, _T("0:"), 1);
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
@@ -115,10 +129,9 @@ namespace fs {
     }
     SFUDFS SPIFLASH;
 };
-#ifdef USESPIFLASH
 const sfud_flash* flash = (sfud_flash*)malloc(sizeof(sfud_flash));
 
-DSTATUS disk_initialize(uint8_t pdrv){
+DSTATUS flash_disk_initialize(uint8_t pdrv){
     // SEEED_FS_DEBUG("The available drive number : %d",pdrv);
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (!(flash_t->status & STA_NOINIT)) {
@@ -137,11 +150,11 @@ DSTATUS disk_initialize(uint8_t pdrv){
     flash_t->type = FLASH_NONE;
     return flash_t->status;
 }
-DSTATUS disk_status(uint8_t pdrv) {
+DSTATUS flash_disk_status(uint8_t pdrv) {
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     return flash_t->status;
 }
-DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
+DRESULT flash_disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (flash_t->status & STA_NOINIT) {
         return RES_NOTRDY;
@@ -152,7 +165,7 @@ DRESULT disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
     res = sfud_read(flash,sector,count,buffer) ? RES_ERROR : RES_OK;
     return res;
 }
-DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
+DRESULT flash_disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
     ardu_sfud_t* flash_t = s_sfuds[pdrv];
     if (flash_t->status & STA_NOINIT) {
         return RES_NOTRDY;
@@ -163,7 +176,7 @@ DRESULT disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count
     res = sfud_erase_write(flash,sector,count,buffer) ? RES_ERROR : RES_OK;
     return res;
 }
-DRESULT disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
+DRESULT flash_disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
     switch (cmd) {
         case CTRL_SYNC: 
             return RES_OK;
@@ -179,4 +192,3 @@ DRESULT disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
     }
     return RES_PARERR;
 }
-#endif
