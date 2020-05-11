@@ -12,9 +12,9 @@ before_install:
   - curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR="$HOME/bin" sh
   - export PATH="$PATH:$HOME/bin"
   - arduino-cli core update-index --additional-urls https://downloads.arduino.cc/packages/package_index.json
-  - arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/Seeed-Studio/Seeed_Platform/master/package_seeeduino_boards_index.json
+  - arduino-cli core update-index --additional-urls http://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
   - arduino-cli  core install arduino:avr --additional-urls https://downloads.arduino.cc/packages/package_index.json
-  - arduino-cli  core install Seeeduino:samd --additional-urls https://raw.githubusercontent.com/Seeed-Studio/Seeed_Platform/master/package_seeeduino_boards_index.json
+  - arduino-cli  core install Seeeduino:samd --additional-urls http://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
   - |
     installLibrary() {
       local -r repositoryFullName="$1"
@@ -38,6 +38,8 @@ script:
       buildExampleSketch SD/SD_Test;
     - |
       buildExampleSketch SD/listfiles;
+    - |
+      buildExampleSketch SD/Multi_partition;
 
 notifications:
   webhooks:
