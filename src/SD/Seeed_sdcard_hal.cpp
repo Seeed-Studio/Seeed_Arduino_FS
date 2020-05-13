@@ -1,714 +1,714 @@
-/*
- * a drive for SD card and 
- * realize the interface of FatFs.
- * 
- * Source code:https://github.com/kendryte/kendryte-standalone-demo
- * 
- * Modified by Hongtai.Liu<lht856@foxmail.com> 
- *             13 July 2019 
- */
-
 #include "Seeed_sdcard_hal.h"
-#include <stdio.h>
-#include "fatfs/diskio.h"
-#include <Arduino.h>
+#include "Arduino.h"
+
+extern "C" {
+#include "../fatfs/diskio.h"
+#include "../fatfs/ffconf.h"
+#include "../fatfs/ff.h"
+    char CRC7(const char* data, int length);
+    unsigned short CRC16(const char* data, int length);
+}
+
 #ifdef KENDRYTE_K210
-  #include <SPIClass.h>
+    #include "SPIClass.h"
 #else
-  #include <SPI.h>
+    #include "SPI.h"
 #endif
 
+#ifdef ARDUINO_ARCH_SAMD
+#define LOG(s, l, n) {SerialUSB.print("staus: ");SerialUSB.print(s);\
+        SerialUSB.print("\tline: ");SerialUSB.print(l);\
+        SerialUSB.print("\tnotice: ");SerialUSB.println(n); }
+#else
+#define LOG(s, l, n) {Serial.print("staus: ");Serial.print(s);\
+        Serial.print("\tline: ");Serial.print(l);\
+        Serial.print("\tnotice: ");Serial.println(n); }
+#endif
+
+typedef enum {
+    GO_IDLE_STATE           = 0,
+    SEND_OP_COND            = 1,
+    SEND_CID                = 2,
+    SEND_RELATIVE_ADDR      = 3,
+    SEND_SWITCH_FUNC        = 6,
+    SEND_IF_COND            = 8,
+    SEND_CSD                = 9,
+    STOP_TRANSMISSION       = 12,
+    SEND_STATUS             = 13,
+    SET_BLOCKLEN            = 16,
+    READ_BLOCK_SINGLE       = 17,
+    READ_BLOCK_MULTIPLE     = 18,
+    SEND_NUM_WR_BLOCKS      = 22,
+    SET_WR_BLK_ERASE_COUNT  = 23,
+    WRITE_BLOCK_SINGLE      = 24,
+    WRITE_BLOCK_MULTIPLE    = 25,
+    APP_OP_COND             = 41,
+    APP_CLR_CARD_DETECT     = 42,
+    APP_CMD                 = 55,
+    READ_OCR                = 58,
+    CRC_ON_OFF              = 59
+} ardu_sdcard_command_t;
+
+static ardu_sdcard_t* s_cards[_VOLUMES] = { NULL , NULL};
+
+namespace {
+
+    struct AcquireSPI {
+        ardu_sdcard_t* card;
+        explicit AcquireSPI(ardu_sdcard_t* card)
+            : card(card) {
+            #ifdef KENDRYTE_K210
+            card->spi->beginTransaction(SPISettings(card->frequency, LSBFIRST, SPI_MODE0));
+            #else
+            card->spi->beginTransaction(SPISettings(card->frequency, MSBFIRST, SPI_MODE0));
+            #endif
+        }
+        AcquireSPI(ardu_sdcard_t* card, int frequency)
+            : card(card) {
+            #ifdef KENDRYTE_K210
+            card->spi->beginTransaction(SPISettings(card->frequency, LSBFIRST, SPI_MODE0));
+            #else
+            card->spi->beginTransaction(SPISettings(card->frequency, MSBFIRST, SPI_MODE0));
+            #endif
+        }
+        ~AcquireSPI() {
+            card->spi->endTransaction();
+        }
+      private:
+        AcquireSPI(AcquireSPI const&);
+        AcquireSPI& operator=(AcquireSPI const&);
+    };
+
+}
+
+
 /*
- * @brief  Start Data tokens:
- *         Tokens (necessary because at nop/idle (and CS active) only 0xff is
- *         on the data/command line)
- */
-#define SD_START_DATA_SINGLE_BLOCK_READ    0xFE  /*!< Data token start byte, Start Single Block Read */
-#define SD_START_DATA_MULTIPLE_BLOCK_READ  0xFE  /*!< Data token start byte, Start Multiple Block Read */
-#define SD_START_DATA_SINGLE_BLOCK_WRITE   0xFE  /*!< Data token start byte, Start Single Block Write */
-#define SD_START_DATA_MULTIPLE_BLOCK_WRITE 0xFC  /*!< Data token start byte, Start Multiple Block Write */
+    SD SPI
+ * */
 
-/*
- * @brief  Commands: CMDxx = CMD-number | 0x40
- */
-#define SD_CMD0          0   /*!< CMD0 = 0x40 */
-#define SD_CMD8          8   /*!< CMD8 = 0x48 */
-#define SD_CMD9          9   /*!< CMD9 = 0x49 */
-#define SD_CMD10         10  /*!< CMD10 = 0x4A */
-#define SD_CMD12         12  /*!< CMD12 = 0x4C */
-#define SD_CMD16         16  /*!< CMD16 = 0x50 */
-#define SD_CMD17         17  /*!< CMD17 = 0x51 */
-#define SD_CMD18         18  /*!< CMD18 = 0x52 */
-#define SD_ACMD23        23  /*!< CMD23 = 0x57 */
-#define SD_CMD24         24  /*!< CMD24 = 0x58 */
-#define SD_CMD25         25  /*!< CMD25 = 0x59 */
-#define SD_ACMD41        41  /*!< ACMD41 = 0x41 */
-#define SD_CMD55         55  /*!< CMD55 = 0x55 */
-#define SD_CMD58         58  /*!< CMD58 = 0x58 */
-#define SD_CMD59         59  /*!< CMD59 = 0x59 */
+bool sdWait(uint8_t pdrv, int timeout) {
+    char resp;
+    uint32_t start = millis();
 
-SD_CardInfo cardinfo;
+    do {
+        resp = s_cards[pdrv]->spi->transfer(0xFF);
+    } while (resp == 0x00 && (millis() - start) < (unsigned int)timeout);
 
-void SD_CS_HIGH(void)
-{
-    digitalWrite(cardinfo.ssPin, HIGH);
+    return (resp > 0x00);
 }
 
-void SD_CS_LOW(void)
-{
-    digitalWrite(cardinfo.ssPin, LOW);
+void sdStop(uint8_t pdrv) {
+    s_cards[pdrv]->spi->transfer(0xFD);
 }
 
-void SD_HIGH_SPEED_ENABLE(void)
-{
-    #ifdef KENDRYTE_K210
-      cardinfo.spi->beginTransaction(SPISettings(cardinfo.frequency, LSBFIRST, 0));
-    #else
-       cardinfo.spi->beginTransaction(SPISettings(cardinfo.frequency, MSBFIRST, SPI_MODE0));
-    #endif
+void sdDeselectCard(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    digitalWrite(card->ssPin, HIGH);
 }
 
-static void SD_HIGH_SPEED_DISABLE(void)
-{
-    #ifdef KENDRYTE_K210
-      cardinfo.spi->beginTransaction(SPISettings(400000, LSBFIRST, 0));
-    #else
-       cardinfo.spi->beginTransaction(SPISettings(400000, MSBFIRST, SPI_MODE0));
-    #endif
+bool sdSelectCard(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    digitalWrite(card->ssPin, LOW);
+    sdWait(pdrv, 300);
+    return true;
 }
 
-static void sd_write_data(uint8_t *data_buff, uint32_t length)
-{
-    //spi_init(SPI_DEVICE_1, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
-    //spi_send_data_standard(SPI_DEVICE_1, SPI_CHIP_SELECT_3, NULL, 0, data_buff, length);
-    SD_HIGH_SPEED_DISABLE();
-    cardinfo.spi->transfer(data_buff, length);
-}
+bool sdReadBytes(uint8_t pdrv, char* buffer, int length) {
+    char token;
+    unsigned short crc;
+    ardu_sdcard_t* card = s_cards[pdrv];
+    char* p = buffer;
 
-static void sd_read_data(uint8_t *data_buff, uint32_t length)
-{
-    SD_HIGH_SPEED_DISABLE();
-   // spi_init(SPI_DEVICE_1, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
-    //spi_receive_data_standard(SPI_DEVICE_1, SPI_CHIP_SELECT_3, NULL, 0, data_buff, length);
-    uint8_t *p = data_buff;
-    for(;p < data_buff+length; p++){
-      *p = cardinfo.spi->transfer(0xFF); 
+    uint32_t start = millis();
+    do {
+        token = card->spi->transfer(0xFF);
+    } while (token == 0xFF && (millis() - start) < 500);
+
+    if (token != 0xFE) {
+        return false;
     }
 
-}
-
-static void sd_write_data_dma(uint8_t *data_buff)
-{
-    //spi_init(SPI_DEVICE_1, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
-    //spi_send_data_standard_dma(DMAC_CHANNEL0, SPI_DEVICE_1, SPI_CHIP_SELECT_3, NULL, 0, (uint8_t *)(data_buff), 128 * 4);
-    SD_HIGH_SPEED_ENABLE();
-    cardinfo.spi->transfer(data_buff, 512);
-}
-
-static void sd_read_data_dma(uint8_t *data_buff)
-{
-    //spi_init(SPI_DEVICE_1, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8, 0);
-    SD_HIGH_SPEED_ENABLE();
-    //spi_receive_data_standard_dma((dmac_channel_number_t)-1, DMAC_CHANNEL0, SPI_DEVICE_1, SPI_CHIP_SELECT_3,NULL, 0, data_buff,128 * 4);
-   uint8_t *p = data_buff;
-    for(;p < data_buff+512; p++){
-      *p = cardinfo.spi->transfer(0xFF); 
+    for (; p < buffer + length; p++) {
+        *p = card->spi->transfer(0xFF);
     }
+    crc = card->spi->transfer16(0xFFFF);
+    return (!card->supports_crc || crc == CRC16(buffer, length));
 }
 
-/*
- * @brief  Send 5 bytes command to the SD card.
- * @param  Cmd: The user expected command to send to SD card.
- * @param  Arg: The command argument.
- * @param  Crc: The CRC.
- * @retval None
- */
-static void sd_send_cmd(uint8_t cmd, uint32_t arg, uint8_t crc)
-{
-  uint8_t frame[6];
-  /*!< Construct byte 1 */
-  frame[0] = (cmd | 0x40);
-  /*!< Construct byte 2 */
-  frame[1] = (uint8_t)(arg >> 24);
-  /*!< Construct byte 3 */
-  frame[2] = (uint8_t)(arg >> 16);
-  /*!< Construct byte 4 */
-  frame[3] = (uint8_t)(arg >> 8);
-  /*!< Construct byte 5 */
-  frame[4] = (uint8_t)(arg);
-  /*!< Construct CRC: byte 6 */
-  frame[5] = (crc);
-  /*!< SD chip select low */
-  SD_CS_LOW();
-  /*!< Send the Cmd bytes */
-  sd_write_data(frame, 6);
+char sdWriteBytes(uint8_t pdrv, const char* buffer, char token) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    unsigned short crc = (card->supports_crc) ? CRC16(buffer, 512) : 0xFFFF;
+    if (!sdWait(pdrv, 500)) {
+        return false;
+    }
+    card->spi->transfer(token);
+    card->spi->transfer((uint8_t*)buffer, 512);
+    card->spi->transfer16(crc);
+    return (card->spi->transfer(0xFF) & 0x1F);
 }
 
-/*
- * @brief  Send 5 bytes command to the SD card.
- * @param  Cmd: The user expected command to send to SD card.
- * @param  Arg: The command argument.
- * @param  Crc: The CRC.
- * @retval None
- */
-static void sd_end_cmd(void)
-{
-  uint8_t frame[1] = {0xFF};
-  /*!< SD chip select high */
-  SD_CS_HIGH();
-  /*!< Send the Cmd bytes */
-  sd_write_data(frame, 1);
-}
+char sdCommand(uint8_t pdrv, char cmd, unsigned int arg, unsigned int* resp) {
 
-/*
- * @brief  Returns the SD response.
- * @param  None
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-static uint8_t sd_get_response(void)
-{
-  uint8_t result;
-  uint16_t timeout = 0x0FFF;
-  /*!< Check if response is got or a timeout is happen */
-  while (timeout--) {
-    sd_read_data(&result, 1);
-    /*!< Right response got */
-    if (result != 0xFF)
-      return result;
-  }
-  /*!< After time out */
-  return 0xFF;
-}
+    char token;
+    ardu_sdcard_t* card = s_cards[pdrv];
 
-/*
- * @brief  Get SD card data response.
- * @param  None
- * @retval The SD status: Read data response xxx0<status>1
- *         - status 010: Data accecpted
- *         - status 101: Data rejected due to a crc error
- *         - status 110: Data rejected due to a Write error.
- *         - status 111: Data rejected due to other error.
- */
-static uint8_t sd_get_dataresponse(void)
-{
-  uint8_t response;
-  /*!< Read resonse */
-  sd_read_data(&response, 1);
-  /*!< Mask unused bits */
-  response &= 0x1F;
-  if (response != 0x05)
-    return 0xFF;
-  /*!< Wait null data */
-  sd_read_data(&response, 1);
-  while (response == 0)
-    sd_read_data(&response, 1);
-  /*!< Return response */
-  return 0;
-}
+    for (int f = 0; f < 3; f++) {
+        if (cmd == SEND_NUM_WR_BLOCKS || cmd == SET_WR_BLK_ERASE_COUNT || cmd == APP_OP_COND || cmd == APP_CLR_CARD_DETECT) {
+            token = sdCommand(pdrv, APP_CMD, 0, NULL);
+            sdDeselectCard(pdrv);
+            if (token > 1) {
+                return token;
+            }
+            if (!sdSelectCard(pdrv)) {
+                return 0xFF;
+            }
+        }
 
-/*
- * @brief  Read the CSD card register
- *         Reading the contents of the CSD register in SPI mode is a simple
- *         read-block transaction.
- * @param  SD_csd: pointer on an SCD register structure
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-static uint8_t sd_get_csdregister(SD_CSD *SD_csd)
-{
-  uint8_t csd_tab[18];
-  /*!< Send CMD9 (CSD register) or CMD10(CSD register) */
-  sd_send_cmd(SD_CMD9, 0, 0);
-  /*!< Wait for response in the R1 format (0x00 is no errors) */
-  if (sd_get_response() != 0x00) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  if (sd_get_response() != SD_START_DATA_SINGLE_BLOCK_READ) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  /*!< Store CSD register value on csd_tab */
-  /*!< Get CRC bytes (not really needed by us, but required by SD) */
-  sd_read_data(csd_tab, 18);
-  sd_end_cmd();
-  /*!< Byte 0 */
-  SD_csd->CSDStruct = (csd_tab[0] & 0xC0) >> 6;
-  SD_csd->SysSpecVersion = (csd_tab[0] & 0x3C) >> 2;
-  SD_csd->Reserved1 = csd_tab[0] & 0x03;
-  /*!< Byte 1 */
-  SD_csd->TAAC = csd_tab[1];
-  /*!< Byte 2 */
-  SD_csd->NSAC = csd_tab[2];
-  /*!< Byte 3 */
-  SD_csd->MaxBusClkFrec = csd_tab[3];
-  /*!< Byte 4 */
-  SD_csd->CardComdClasses = csd_tab[4] << 4;
-  /*!< Byte 5 */
-  SD_csd->CardComdClasses |= (csd_tab[5] & 0xF0) >> 4;
-  SD_csd->RdBlockLen = csd_tab[5] & 0x0F;
-  /*!< Byte 6 */
-  SD_csd->PartBlockRead = (csd_tab[6] & 0x80) >> 7;
-  SD_csd->WrBlockMisalign = (csd_tab[6] & 0x40) >> 6;
-  SD_csd->RdBlockMisalign = (csd_tab[6] & 0x20) >> 5;
-  SD_csd->DSRImpl = (csd_tab[6] & 0x10) >> 4;
-  SD_csd->Reserved2 = 0; /*!< Reserved */
-  SD_csd->DeviceSize = (csd_tab[6] & 0x03) << 10;
-  /*!< Byte 7 */
-  SD_csd->DeviceSize = (csd_tab[7] & 0x3F) << 16;
-  /*!< Byte 8 */
-  SD_csd->DeviceSize |= csd_tab[8] << 8;
-  /*!< Byte 9 */
-  SD_csd->DeviceSize |= csd_tab[9];
-  /*!< Byte 10 */
-  SD_csd->EraseGrSize = (csd_tab[10] & 0x40) >> 6;
-  SD_csd->EraseGrMul = (csd_tab[10] & 0x3F) << 1;
-  /*!< Byte 11 */
-  SD_csd->EraseGrMul |= (csd_tab[11] & 0x80) >> 7;
-  SD_csd->WrProtectGrSize = (csd_tab[11] & 0x7F);
-  /*!< Byte 12 */
-  SD_csd->WrProtectGrEnable = (csd_tab[12] & 0x80) >> 7;
-  SD_csd->ManDeflECC = (csd_tab[12] & 0x60) >> 5;
-  SD_csd->WrSpeedFact = (csd_tab[12] & 0x1C) >> 2;
-  SD_csd->MaxWrBlockLen = (csd_tab[12] & 0x03) << 2;
-  /*!< Byte 13 */
-  SD_csd->MaxWrBlockLen |= (csd_tab[13] & 0xC0) >> 6;
-  SD_csd->WriteBlockPaPartial = (csd_tab[13] & 0x20) >> 5;
-  SD_csd->Reserved3 = 0;
-  SD_csd->ContentProtectAppli = (csd_tab[13] & 0x01);
-  /*!< Byte 14 */
-  SD_csd->FileFormatGrouop = (csd_tab[14] & 0x80) >> 7;
-  SD_csd->CopyFlag = (csd_tab[14] & 0x40) >> 6;
-  SD_csd->PermWrProtect = (csd_tab[14] & 0x20) >> 5;
-  SD_csd->TempWrProtect = (csd_tab[14] & 0x10) >> 4;
-  SD_csd->FileFormat = (csd_tab[14] & 0x0C) >> 2;
-  SD_csd->ECC = (csd_tab[14] & 0x03);
-  /*!< Byte 15 */
-  SD_csd->CSD_CRC = (csd_tab[15] & 0xFE) >> 1;
-  SD_csd->Reserved4 = 1;
-  /*!< Return the reponse */
-  return 0;
-}
+        char cmdPacket[7];
+        cmdPacket[0] = cmd | 0x40;
+        cmdPacket[1] = arg >> 24;
+        cmdPacket[2] = arg >> 16;
+        cmdPacket[3] = arg >> 8;
+        cmdPacket[4] = arg;
+        if (card->supports_crc || cmd == GO_IDLE_STATE || cmd == SEND_IF_COND) {
+            cmdPacket[5] = (CRC7(cmdPacket, 5) << 1) | 0x01;
+        } else {
+            cmdPacket[5] = 0x01;
+        }
+        cmdPacket[6] = 0xFF;
 
-/*
- * @brief  Read the CID card register.
- *         Reading the contents of the CID register in SPI mode is a simple
- *         read-block transaction.
- * @param  SD_cid: pointer on an CID register structure
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-static uint8_t sd_get_cidregister(SD_CID *SD_cid)
-{
-  uint8_t cid_tab[18];
-  /*!< Send CMD10 (CID register) */
-  sd_send_cmd(SD_CMD10, 0, 0);
-  /*!< Wait for response in the R1 format (0x00 is no errors) */
-  if (sd_get_response() != 0x00) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  if (sd_get_response() != SD_START_DATA_SINGLE_BLOCK_READ) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  /*!< Store CID register value on cid_tab */
-  /*!< Get CRC bytes (not really needed by us, but required by SD) */
-  sd_read_data(cid_tab, 18);
-  sd_end_cmd();
-  /*!< Byte 0 */
-  SD_cid->ManufacturerID = cid_tab[0];
-  /*!< Byte 1 */
-  SD_cid->OEM_AppliID = cid_tab[1] << 8;
-  /*!< Byte 2 */
-  SD_cid->OEM_AppliID |= cid_tab[2];
-  /*!< Byte 3 */
-  SD_cid->ProdName1 = cid_tab[3] << 24;
-  /*!< Byte 4 */
-  SD_cid->ProdName1 |= cid_tab[4] << 16;
-  /*!< Byte 5 */
-  SD_cid->ProdName1 |= cid_tab[5] << 8;
-  /*!< Byte 6 */
-  SD_cid->ProdName1 |= cid_tab[6];
-  /*!< Byte 7 */
-  SD_cid->ProdName2 = cid_tab[7];
-  /*!< Byte 8 */
-  SD_cid->ProdRev = cid_tab[8];
-  /*!< Byte 9 */
-  SD_cid->ProdSN = cid_tab[9] << 24;
-  /*!< Byte 10 */
-  SD_cid->ProdSN |= cid_tab[10] << 16;
-  /*!< Byte 11 */
-  SD_cid->ProdSN |= cid_tab[11] << 8;
-  /*!< Byte 12 */
-  SD_cid->ProdSN |= cid_tab[12];
-  /*!< Byte 13 */
-  SD_cid->Reserved1 |= (cid_tab[13] & 0xF0) >> 4;
-  SD_cid->ManufactDate = (cid_tab[13] & 0x0F) << 8;
-  /*!< Byte 14 */
-  SD_cid->ManufactDate |= cid_tab[14];
-  /*!< Byte 15 */
-  SD_cid->CID_CRC = (cid_tab[15] & 0xFE) >> 1;
-  SD_cid->Reserved2 = 1;
-  /*!< Return the reponse */
-  return 0;
-}
+        card->spi->transfer((uint8_t*)cmdPacket, (cmd == STOP_TRANSMISSION) ? 7 : 6);
 
-/*
- * @brief  Returns information about specific card.
- * @param  cardinfo: pointer to a SD_CardInfo structure that contains all SD
- *         card information.
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-static uint8_t sd_get_cardinfo(SD_CardInfo *cardinfo)
-{
-  if (sd_get_csdregister(&(cardinfo->SD_csd)))
-    return 0xFF;
-  if (sd_get_cidregister(&(cardinfo->SD_cid)))
-    return 0xFF;
-  cardinfo->CardCapacity = (cardinfo->SD_csd.DeviceSize + 1) * 1024;
-  cardinfo->CardBlockSize = 1 << (cardinfo->SD_csd.RdBlockLen);
-  cardinfo->CardCapacity *= cardinfo->CardBlockSize;
-  /*!< Returns the reponse */
-  return 0;
-}
+        for (int i = 0; i < 9; i++) {
+            token = card->spi->transfer(0xFF);
+            if (!(token & 0x80)) {
+                break;
+            }
+        }
 
-/*
- * @brief  Initializes the SD/SD communication.
- * @param  None
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-uint8_t sd_init(void)
-{
-  uint8_t frame[10], index, result;
-  /*!< Initialize SD_SPI */
-  /*!< SD chip select high */
-  SD_CS_HIGH();
-  /*!< Send dummy byte 0xFF, 10 times with CS high */
-  /*!< Rise CS and MOSI for 80 clocks cycles */
-  /*!< Send dummy byte 0xFF */
-  for (index = 0; index < 10; index++)
-    frame[index] = 0xFF;
-  sd_write_data(frame, 10);
-  /*------------Put SD in SPI mode--------------*/
-  /*!< SD initialized and set to SPI mode properly */
-
-    index = 0xFF;
-    while (index--) {
-        sd_send_cmd(SD_CMD0, 0, 0x95);
-        result = sd_get_response();
-        sd_end_cmd();
-        if (result == 0x01)
+        if (token == 0xFF) {
+            sdDeselectCard(pdrv);
+            delay(100);
+            sdSelectCard(pdrv);
+            continue;
+        } else if (token & 0x08) {
+            sdDeselectCard(pdrv);
+            delay(100);
+            sdSelectCard(pdrv);
+            continue;
+        } else if (token > 1) {
             break;
+        }
+
+        if (cmd == SEND_STATUS && resp) {
+            *resp = card->spi->transfer(0xFF);
+        } else if ((cmd == SEND_IF_COND || cmd == READ_OCR) && resp) {
+            for (uint8_t i = 0; i < 4; i++) {
+                uint8_t temp = card->spi->transfer(0xFF);
+                *resp = *resp * 256  + temp;
+            }
+        }
+        break;
     }
-    if (index == 0)
-    {
-        printf("SD_CMD0 is %X\n", result);
+    return token;
+}
+
+/*
+    SPI SDCARD Communication
+ * */
+
+char sdTransaction(uint8_t pdrv, char cmd, unsigned int arg, unsigned int* resp) {
+    if (!sdSelectCard(pdrv)) {
+        return 0xFF;
+    }
+    char token = sdCommand(pdrv, cmd, arg, resp);
+    sdDeselectCard(pdrv);
+    return token;
+}
+
+bool sdReadSector(uint8_t pdrv, char* buffer, unsigned long long sector) {
+    for (int f = 0; f < 3; f++) {
+        if (!sdSelectCard(pdrv)) {
+            break;
+        }
+        if (!sdCommand(pdrv, READ_BLOCK_SINGLE, (s_cards[pdrv]->type == CARD_SDHC) ? sector : sector << 9, NULL)) {
+            bool success = sdReadBytes(pdrv, buffer, 512);
+            sdDeselectCard(pdrv);
+            if (success) {
+                return true;
+            }
+        } else {
+            break;
+        }
+    }
+    sdDeselectCard(pdrv);
+    return false;
+}
+
+
+bool sdReadSectors(uint8_t pdrv, char* buffer, unsigned long long sector, int count) {
+    for (int f = 0; f < 3;) {
+        if (!sdSelectCard(pdrv)) {
+            break;
+        }
+
+        if (!sdCommand(pdrv, READ_BLOCK_MULTIPLE, (s_cards[pdrv]->type == CARD_SDHC) ? sector : sector << 9, NULL)) {
+            do {
+                if (!sdReadBytes(pdrv, buffer, 512)) {
+                    f++;
+                    break;
+                }
+
+                sector++;
+                buffer += 512;
+                f = 0;
+            } while (--count);
+
+            if (sdCommand(pdrv, STOP_TRANSMISSION, 0, NULL)) {
+                break;
+            }
+
+            sdDeselectCard(pdrv);
+            if (count == 0) {
+                return true;
+            }
+        } else {
+            break;
+        }
+    }
+    sdDeselectCard(pdrv);
+    return false;
+}
+
+bool sdWriteSector(uint8_t pdrv, const char* buffer, unsigned long long sector) {
+    for (int f = 0; f < 3; f++) {
+        if (!sdSelectCard(pdrv)) {
+            break;
+        }
+        if (!sdCommand(pdrv, WRITE_BLOCK_SINGLE, (s_cards[pdrv]->type == CARD_SDHC) ? sector : sector << 9, NULL)) {
+
+            char token = sdWriteBytes(pdrv, buffer, 0xFE);
+            sdDeselectCard(pdrv);
+
+            if (token == 0x0A) {
+                continue;
+            } else if (token == 0x0C) {
+                return false;
+            }
+
+            unsigned int resp;
+            if (sdTransaction(pdrv, SEND_STATUS, 0, &resp) || resp) {
+                return false;
+            }
+            return true;
+        } else {
+            break;
+        }
+    }
+    sdDeselectCard(pdrv);
+    return false;
+}
+
+bool sdWriteSectors(uint8_t pdrv, const char* buffer, unsigned long long sector, int count) {
+    char token;
+    const char* currentBuffer = buffer;
+    unsigned long long currentSector = sector;
+    int currentCount = count;
+    ardu_sdcard_t* card = s_cards[pdrv];
+
+    for (int f = 0; f < 3;) {
+        if (card->type != CARD_MMC) {
+            if (sdTransaction(pdrv, SET_WR_BLK_ERASE_COUNT, currentCount, NULL)) {
+                break;
+            }
+        }
+
+        if (!sdSelectCard(pdrv)) {
+            break;
+        }
+
+        if (!sdCommand(pdrv, WRITE_BLOCK_MULTIPLE, (card->type == CARD_SDHC) ? currentSector : currentSector << 9, NULL)) {
+            do {
+                token = sdWriteBytes(pdrv, currentBuffer, 0xFC);
+                if (token != 0x05) {
+                    f++;
+                    break;
+                }
+                currentBuffer += 512;
+                f = 0;
+            } while (--currentCount);
+
+            if (!sdWait(pdrv, 500)) {
+                break;
+            }
+
+            if (currentCount == 0) {
+                sdStop(pdrv);
+                sdDeselectCard(pdrv);
+
+                unsigned int resp;
+                if (sdTransaction(pdrv, SEND_STATUS, 0, &resp) || resp) {
+                    return false;
+                }
+                return true;
+            } else {
+                if (sdCommand(pdrv, STOP_TRANSMISSION, 0, NULL)) {
+                    break;
+                }
+
+                sdDeselectCard(pdrv);
+
+                if (token == 0x0A) {
+                    unsigned int writtenBlocks = 0;
+                    if (card->type != CARD_MMC && sdSelectCard(pdrv)) {
+                        if (!sdCommand(pdrv, SEND_NUM_WR_BLOCKS, 0, NULL)) {
+                            char acmdData[4];
+                            if (sdReadBytes(pdrv, acmdData, 4)) {
+                                writtenBlocks = acmdData[0] << 24;
+                                writtenBlocks |= acmdData[1] << 16;
+                                writtenBlocks |= acmdData[2] << 8;
+                                writtenBlocks |= acmdData[3];
+                            }
+                        }
+                        sdDeselectCard(pdrv);
+                    }
+                    currentBuffer = buffer + (writtenBlocks << 9);
+                    currentSector = sector + writtenBlocks;
+                    currentCount = count - writtenBlocks;
+                    continue;
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            break;
+        }
+    }
+    sdDeselectCard(pdrv);
+    return false;
+}
+
+unsigned long sdGetSectorsCount(uint8_t pdrv) {
+    for (int f = 0; f < 3; f++) {
+        if (!sdSelectCard(pdrv)) {
+            break;
+        }
+
+        if (!sdCommand(pdrv, SEND_CSD, 0, NULL)) {
+            char csd[16];
+            bool success = sdReadBytes(pdrv, csd, 16);
+            sdDeselectCard(pdrv);
+            if (success) {
+                if ((csd[0] >> 6) == 0x01) {
+                    unsigned long size = (
+                                             ((unsigned long)(csd[7] & 0x3F) << 16)
+                                             | ((unsigned long)csd[8] << 8)
+                                             | csd[9]
+                                         ) + 1;
+                    return size << 10;
+                }
+                unsigned long size = (
+                                         ((unsigned long)(csd[6] & 0x03) << 10)
+                                         | ((unsigned long)csd[7] << 2)
+                                         | ((csd[8] & 0xC0) >> 6)
+                                     ) + 1;
+                size <<= ((
+                              ((csd[9] & 0x03) << 1)
+                              | ((csd[10] & 0x80) >> 7)
+                          ) + 2);
+                size <<= (csd[5] & 0x0F);
+                return size >> 9;
+            }
+        } else {
+            break;
+        }
+    }
+
+    sdDeselectCard(pdrv);
+    return 0;
+}
+
+/*
+    FATFS API
+ * */
+
+DSTATUS sd_disk_initialize(uint8_t pdrv) {
+    char token;
+    unsigned int resp;
+    unsigned int start;
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (!(card->status & STA_NOINIT)) {
+        return card->status;
+    }
+
+    AcquireSPI card_locked(card, 400000);
+
+    digitalWrite(card->ssPin, HIGH);
+    for (uint8_t i = 0; i < 20; i++) {
+        card->spi->transfer(0XFF);
+    }
+
+    if (sdTransaction(pdrv, GO_IDLE_STATE, 0, NULL) != 1) {
+        goto unknown_card;
+    }
+
+    token = sdTransaction(pdrv, CRC_ON_OFF, 0, NULL);
+    if (token == 0x5) {
+        card->supports_crc = false;
+    } else if (token != 1) {
+        goto unknown_card;
+    }
+    card->supports_crc = false;
+
+    if (sdTransaction(pdrv, SEND_IF_COND, 0x1AA, &resp) == 1) {
+        if ((resp & 0xFFF) != 0x1AA) {
+            goto unknown_card;
+        }
+
+        if (sdTransaction(pdrv, READ_OCR, 0, &resp) != 1 || !(resp & (1 << 20))) {
+            goto unknown_card;
+        }
+
+        start = millis();
+        do {
+            token = sdTransaction(pdrv, APP_OP_COND, 0x40000000, NULL);
+        } while (token == 1 && (millis() - start) < 1000);
+
+        if (token) {
+            goto unknown_card;
+        }
+
+        if (!sdTransaction(pdrv, READ_OCR, 0, &resp)) {
+            if (resp & (1 << 30)) {
+                card->type = CARD_SDHC;
+            } else {
+                card->type = CARD_SD;
+            }
+        } else {
+            goto unknown_card;
+        }
+    } else {
+        if (sdTransaction(pdrv, READ_OCR, 0, &resp) != 1 || !(resp & (1 << 20))) {
+            goto unknown_card;
+        }
+
+        start = millis();
+        do {
+            token = sdTransaction(pdrv, APP_OP_COND, 0x100000, NULL);
+        } while (token == 0x01 && (millis() - start) < 1000);
+
+        if (!token) {
+            card->type = CARD_SD;
+        } else {
+            start = millis();
+            do {
+                token = sdTransaction(pdrv, SEND_OP_COND, 0x100000, NULL);
+            } while (token != 0x00 && (millis() - start) < 1000);
+
+            if (token == 0x00) {
+                card->type = CARD_MMC;
+            } else {
+                goto unknown_card;
+            }
+        }
+    }
+
+    if (card->type != CARD_MMC) {
+        if (sdTransaction(pdrv, APP_CLR_CARD_DETECT, 0, NULL)) {
+            goto unknown_card;
+        }
+    }
+
+    if (card->type != CARD_SDHC) {
+        if (sdTransaction(pdrv, SET_BLOCKLEN, 512, NULL) != 0x00) {
+            goto unknown_card;
+        }
+    }
+
+    card->sectors = sdGetSectorsCount(pdrv);
+
+    if (card->frequency > 25000000) {
+        card->frequency = 25000000;
+    }
+
+    card->status &= ~STA_NOINIT;
+    return card->status;
+
+unknown_card:
+    card->type = CARD_UNKNOWN;
+    return card->status;
+}
+
+
+DSTATUS sd_disk_status(uint8_t pdrv) {
+    return s_cards[pdrv]->status;
+}
+
+DRESULT sd_disk_read(uint8_t pdrv, uint8_t* buffer, DWORD sector, UINT count) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (card->status & STA_NOINIT) {
+        return RES_NOTRDY;
+    }
+    DRESULT res = RES_OK;
+
+    AcquireSPI lock(card);
+
+    if (count > 1) {
+        res = sdReadSectors(pdrv, (char*)buffer, sector, count) ? RES_OK : RES_ERROR;
+    } else {
+        res = sdReadSector(pdrv, (char*)buffer, sector) ? RES_OK : RES_ERROR;
+    }
+    return res;
+}
+
+DRESULT sd_disk_write(uint8_t pdrv, const uint8_t* buffer, DWORD sector, UINT count) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (card->status & STA_NOINIT) {
+        return RES_NOTRDY;
+    }
+
+    if (card->status & STA_PROTECT) {
+        return RES_WRPRT;
+    }
+    DRESULT res = RES_OK;
+
+    AcquireSPI lock(card);
+
+    if (count > 1) {
+        res = sdWriteSectors(pdrv, (const char*)buffer, sector, count) ? RES_OK : RES_ERROR;
+    }
+    res = sdWriteSector(pdrv, (const char*)buffer, sector) ? RES_OK : RES_ERROR;
+    return res;
+}
+
+DRESULT sd_disk_ioctl(uint8_t pdrv, uint8_t cmd, void* buff) {
+    switch (cmd) {
+        case CTRL_SYNC: {
+                AcquireSPI lock(s_cards[pdrv]);
+                if (sdSelectCard(pdrv)) {
+                    sdDeselectCard(pdrv);
+                    return RES_OK;
+                }
+            }
+            return RES_ERROR;
+        case GET_SECTOR_COUNT:
+            *((unsigned long*) buff) = s_cards[pdrv]->sectors;
+            return RES_OK;
+        case GET_SECTOR_SIZE:
+            *((WORD*) buff) = 512;
+            return RES_OK;
+        case GET_BLOCK_SIZE:
+            *((uint32_t*)buff) = 1;
+            return RES_OK;
+    }
+    return RES_PARERR;
+}
+
+
+/*
+    Public methods
+ * */
+
+uint8_t sdcard_uninit(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (pdrv >= _VOLUMES || card == NULL) {
+        return 1;
+    }
+    ff_diskio_register(pdrv, NULL);
+    s_cards[pdrv] = NULL;
+    free(card);
+
+    return 0;
+}
+
+uint8_t sdcard_init(uint8_t cs, SPIClass* spi, int hz) {
+
+    uint8_t pdrv = 0xFF;
+    if (ff_diskio_get_drive(&pdrv) != 0 || pdrv == 0xFF) {
+        return pdrv;
+    }
+
+    ardu_sdcard_t* card = (ardu_sdcard_t*)malloc(sizeof(ardu_sdcard_t));
+    if (!card) {
         return 0xFF;
     }
 
-  sd_send_cmd(SD_CMD8, 0x01AA, 0x87);
-  /*!< 0x01 or 0x05 */
-  result = sd_get_response();
-  sd_read_data(frame, 4);
-  sd_end_cmd();
-  if (result != 0x01)
-  {
-        printf("SD_CMD8 is %X\n", result);
-    return 0xFF;
+    card->frequency = hz;
+    card->spi = spi;
+    card->ssPin = cs;
+
+    card->supports_crc = true;
+    card->type = CARD_NONE;
+    card->status = STA_NOINIT;
+
+    pinMode(card->ssPin, OUTPUT);
+    digitalWrite(card->ssPin, HIGH);
+
+    s_cards[pdrv] = card;
+
+    static const ff_diskio_impl_t sd_impl = {
+        .init = &sd_disk_initialize,
+        .status = &sd_disk_status,
+        .read = &sd_disk_read,
+        .write = &sd_disk_write,
+        .ioctl = &sd_disk_ioctl
+    };
+    ff_diskio_register(pdrv, &sd_impl);
+
+    return pdrv;
+}
+
+uint8_t sdcard_unmount(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (pdrv >= _VOLUMES || card == NULL) {
+        return 1;
     }
-  index = 0xFF;
-  while (index--) {
-    sd_send_cmd(SD_CMD55, 0, 0);
-    result = sd_get_response();
-    sd_end_cmd();
-    if (result != 0x01)
-      return 0xFF;
-    sd_send_cmd(SD_ACMD41, 0x40000000, 0);
-    result = sd_get_response();
-    sd_end_cmd();
-    if (result == 0x00)
-      break;
-  }
-  if (index == 0)
-  {
-        printf("SD_CMD55 is %X\n", result);
-    return 0xFF;
-    }
-  index = 255;
-  while(index--){
-    sd_send_cmd(SD_CMD58, 0, 1);
-    result = sd_get_response();
-    sd_read_data(frame, 4);
-    sd_end_cmd();
-    if(result == 0){
-      break;
-    }
-  }
-  if(index == 0)
-  {
-      printf("SD_CMD58 is %X\n", result);
-    return 0xFF;
-  }
-  if ((frame[0] & 0x40) == 0)
-    return 0xFF;
-  return sd_get_cardinfo(&cardinfo);
-}
+    card->status |= STA_NOINIT;
+    card->type = CARD_NONE;
 
-/*
- * @brief  Reads a block of data from the SD.
- * @param  data_buff: pointer to the buffer that receives the data read from the
- *                  SD.
- * @param  sector: SD's internal address to read from.
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-uint8_t sd_read_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
-{
-  uint8_t frame[2], flag;
-  /*!< Send CMD17 (SD_CMD17) to read one block */
-  if (count == 1) {
-    flag = 0;
-    sd_send_cmd(SD_CMD17, sector, 0);
-  } else {
-    flag = 1;
-    sd_send_cmd(SD_CMD18, sector, 0);
-  }
-  /*!< Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
-  if (sd_get_response() != 0x00) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  while (count) {
-    if (sd_get_response() != SD_START_DATA_SINGLE_BLOCK_READ)
-      break;
-    /*!< Read the SD block data : read NumByteToRead data */
-    sd_read_data(data_buff, 512);
-    /*!< Get CRC bytes (not really needed by us, but required by SD) */
-    sd_read_data(frame, 2);
-    data_buff += 512;
-    count--;
-  }
-  sd_end_cmd();
-  if (flag) {
-    sd_send_cmd(SD_CMD12, 0, 0);
-    sd_get_response();
-    sd_end_cmd();
-    sd_end_cmd();
-  }
-  /*!< Returns the reponse */
-  return count > 0 ? 0xFF : 0;
-}
-
-/*
- * @brief  Writes a block on the SD
- * @param  data_buff: pointer to the buffer containing the data to be written on
- *                  the SD.
- * @param  sector: address to write on.
- * @retval The SD Response:
- *         - 0xFF: Sequence failed
- *         - 0: Sequence succeed
- */
-uint8_t sd_write_sector(uint8_t *data_buff, uint32_t sector, uint32_t count)
-{
-  uint8_t frame[2] = {0xFF};
-
-  if (count == 1) {
-    frame[1] = SD_START_DATA_SINGLE_BLOCK_WRITE;
-    sd_send_cmd(SD_CMD24, sector, 0);
-  } else {
-    frame[1] = SD_START_DATA_MULTIPLE_BLOCK_WRITE;
-    sd_send_cmd(SD_ACMD23, count, 0);
-    sd_get_response();
-    sd_end_cmd();
-    sd_send_cmd(SD_CMD25, sector, 0);
-  }
-  /*!< Check if the SD acknowledged the write block command: R1 response (0x00: no errors) */
-  if (sd_get_response() != 0x00) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  while (count--) {
-    /*!< Send the data token to signify the start of the data */
-    sd_write_data(frame, 2);
-    /*!< Write the block data to SD : write count data by block */
-    sd_write_data(data_buff, 512);
-    /*!< Put CRC bytes (not really needed by us, but required by SD) */
-    sd_write_data(frame, 2);
-    data_buff += 512;
-    /*!< Read data response */
-    if (sd_get_dataresponse() != 0x00) {
-      sd_end_cmd();
-      return 0xFF;
-    }
-  }
-  sd_end_cmd();
-  sd_end_cmd();
-  /*!< Returns the reponse */
-  return 0;
-}
-
-uint8_t sd_read_sector_dma(uint8_t *data_buff, uint32_t sector, uint32_t count)
-{
-  uint8_t frame[2], flag;
-
-  /*!< Send CMD17 (SD_CMD17) to read one block */
-  if (count == 1) {
-    flag = 0;
-    sd_send_cmd(SD_CMD17, sector, 0);
-  } else {
-    flag = 1;
-    sd_send_cmd(SD_CMD18, sector, 0);
-  }
-  /*!< Check if the SD acknowledged the read block command: R1 response (0x00: no errors) */
-  if (sd_get_response() != 0x00) {
-    sd_end_cmd();
-    return 0xFF;
-  }
-  while (count) {
-    if (sd_get_response() != SD_START_DATA_SINGLE_BLOCK_READ)
-      break;
-    /*!< Read the SD block data : read NumByteToRead data */
-    sd_read_data_dma(data_buff);
-    /*!< Get CRC bytes (not really needed by us, but required by SD) */
-    sd_read_data(frame, 2);
-    data_buff += 512;
-    count--;
-  }
-  sd_end_cmd();
-  if (flag) {
-    sd_send_cmd(SD_CMD12, 0, 0);
-    sd_get_response();
-    sd_end_cmd();
-    sd_end_cmd();
-  }
-  /*!< Returns the reponse */
-  return count > 0 ? 0xFF : 0;
-}
-
-uint8_t sd_write_sector_dma(uint8_t *data_buff, uint32_t sector, uint32_t count)
-{
-  uint8_t frame[2] = {0xFF};
-    frame[1] = SD_START_DATA_SINGLE_BLOCK_WRITE;
-    uint32_t i = 0;
-  while (count--) {
-        sd_send_cmd(SD_CMD24, sector + i, 0);
-        /*!< Check if the SD acknowledged the write block command: R1 response (0x00: no errors) */
-        if (sd_get_response() != 0x00) {
-            sd_end_cmd();
-            return 0xFF;
-        }
-
-    /*!< Send the data token to signify the start of the data */
-    sd_write_data(frame, 2);
-    /*!< Write the block data to SD : write count data by block */
-    sd_write_data_dma(data_buff);
-    /*!< Put CRC bytes (not really needed by us, but required by SD) */
-    sd_write_data(frame, 2);
-    data_buff += 512;
-    /*!< Read data response */
-    if (sd_get_dataresponse() != 0x00) {
-      sd_end_cmd();
-      return 0xFF;
-    }
-    i++;
-  }
-  sd_end_cmd();
-  sd_end_cmd();
-  /*!< Returns the reponse */
-  return 0;
-}
-
-
-/*-----------------------------------------------------------------------*/
-/* Get Drive Status                                                      */
-/*-----------------------------------------------------------------------*/
-
-DSTATUS disk_status(BYTE pdrv)
-{
-  return 0;
-}
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Inidialize a Drive                                                    */
-/*-----------------------------------------------------------------------*/
-
-DSTATUS disk_initialize(BYTE pdrv)
-{
-  if (sd_init() == 0)
+    TCHAR drv[3] = {_T('0' + pdrv), _T(':'), _T('0')};
+    
+    f_mount(NULL, drv, 0);
     return 0;
-  return STA_NOINIT;
+}
+
+bool sdcard_mount(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (pdrv >= _VOLUMES || card == NULL) {
+
+        return false;
+    }
+
+    FATFS fs;
+    TCHAR drv[3] = {_T('0' + pdrv), _T(':'), _T('0')};
+    FRESULT res = f_mount(&fs, drv, 1);
+    if (res != FR_OK) {
+        return false;
+    }
+    AcquireSPI lock(card);
+    return true;
 }
 
 
-
-/*-----------------------------------------------------------------------*/
-/* Read Sector(s)                                                        */
-/*-----------------------------------------------------------------------*/
-
-DRESULT disk_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count)
-{
-  if (sd_read_sector_dma(buff, sector, count) == 0)
-    return RES_OK;
-  return RES_ERROR;
+uint32_t sdcard_num_sectors(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (pdrv >= _VOLUMES || card == NULL) {
+        return 0;
+    }
+    return card->sectors;
 }
 
-
-
-/*-----------------------------------------------------------------------*/
-/* Write Sector(s)                                                       */
-/*-----------------------------------------------------------------------*/
-
-DRESULT disk_write(BYTE pdrv, const BYTE *buff, DWORD sector, UINT count)
-{
-  if (sd_write_sector_dma((BYTE *)buff, sector, count) == 0)
-    return RES_OK;
-  return RES_ERROR;
+uint32_t sdcard_sector_size(uint8_t pdrv) {
+    if (pdrv >= _VOLUMES || s_cards[pdrv] == NULL) {
+        return 0;
+    }
+    return 512;
 }
 
-
-
-/*-----------------------------------------------------------------------*/
-/* Miscellaneous Functions                                               */
-/*-----------------------------------------------------------------------*/
-
-DRESULT disk_ioctl(BYTE pdrv, BYTE cmd, void *buff)
-{
-  DRESULT res = RES_ERROR;
-
-  switch (cmd) {
-  /* Make sure that no pending write process */
-  case CTRL_SYNC:
-    res = RES_OK;
-    break;
-  /* Get number of sectors on the disk (DWORD) */
-  case GET_SECTOR_COUNT:
-    *(DWORD *)buff = (cardinfo.SD_csd.DeviceSize + 1) << 10;
-    res = RES_OK;
-    break;
-  /* Get R/W sector size (WORD) */
-  case GET_SECTOR_SIZE:
-    *(WORD *)buff = cardinfo.CardBlockSize;
-    res = RES_OK;
-    break;
-  /* Get erase block size in unit of sector (DWORD) */
-  case GET_BLOCK_SIZE:
-    *(DWORD *)buff = cardinfo.CardBlockSize;
-    res = RES_OK;
-    break;
-  default:
-    res = RES_PARERR;
-  }
-  return res;
+sdcard_type_t sdcard_type(uint8_t pdrv) {
+    ardu_sdcard_t* card = s_cards[pdrv];
+    if (pdrv >= _VOLUMES || card == NULL) {
+        return CARD_NONE;
+    }
+    return card->type;
 }
