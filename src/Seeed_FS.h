@@ -3,32 +3,32 @@
 
 
 /*
-  ________________________________________________________________________________________________________________________________________
- |    Flags         |                            Meaning                                                                                  |
- |----------------------------------------------------------------------------------------------------------------------------------------|
- | FA_READ          | Specifies read access to the object. Data can be read from the file.                                                |
- | FA_WRITE         | Specifies write access to the object. Data can be written to the file. Combine with FA_READ for read-write access.  |
- | FA_OPEN_EXISTING | Opens the file. The function fails if the file is not existing. (Default)                                           |
- | FA_CREATE_NEW    | Creates a new file. The function fails with FR_EXIST if the file is existing.                                       |
- | FA_CREATE_ALWAYS | Creates a new file. If the file is existing, it will be truncated and overwritten.                                  |
- | FA_OPEN_ALWAYS   | Opens the file if it is existing. If not, a new file will be created.                                               |
- | FA_OPEN_APPEND   | Same as FA_OPEN_ALWAYS except the read/write pointer is set end of the file.                                        |
- |__________________|_____________________________________________________________________________________________________________________|
+    ________________________________________________________________________________________________________________________________________
+    |    Flags         |                            Meaning                                                                                  |
+    |----------------------------------------------------------------------------------------------------------------------------------------|
+    | FA_READ          | Specifies read access to the object. Data can be read from the file.                                                |
+    | FA_WRITE         | Specifies write access to the object. Data can be written to the file. Combine with FA_READ for read-write access.  |
+    | FA_OPEN_EXISTING | Opens the file. The function fails if the file is not existing. (Default)                                           |
+    | FA_CREATE_NEW    | Creates a new file. The function fails with FR_EXIST if the file is existing.                                       |
+    | FA_CREATE_ALWAYS | Creates a new file. If the file is existing, it will be truncated and overwritten.                                  |
+    | FA_OPEN_ALWAYS   | Opens the file if it is existing. If not, a new file will be created.                                               |
+    | FA_OPEN_APPEND   | Same as FA_OPEN_ALWAYS except the read/write pointer is set end of the file.                                        |
+    |__________________|_____________________________________________________________________________________________________________________|
 */
 
 /*
-  _____________________________________________________
- |    POSIX    |               FatFs                   |
- |-------------|---------------------------------------|
- |"r"          |FA_READ                                |
- |"r+"         |FA_READ | FA_WRITE                     |
- |"w"          |FA_CREATE_ALWAYS | FA_WRITE            |
- |"w+"         |FA_CREATE_ALWAYS | FA_WRITE | FA_READ  |
- |"a"          |FA_OPEN_APPEND | FA_WRITE              |
- |"a+"         |FA_OPEN_APPEND | FA_WRITE | FA_READ    |
- |"wx"         |FA_CREATE_NEW | FA_WRITE               |
- |"w+x"        |FA_CREATE_NEW | FA_WRITE | FA_READ     |
- |_____________|_______________________________________|
+    _____________________________________________________
+    |    POSIX    |               FatFs                   |
+    |-------------|---------------------------------------|
+    |"r"          |FA_READ                                |
+    |"r+"         |FA_READ | FA_WRITE                     |
+    |"w"          |FA_CREATE_ALWAYS | FA_WRITE            |
+    |"w+"         |FA_CREATE_ALWAYS | FA_WRITE | FA_READ  |
+    |"a"          |FA_OPEN_APPEND | FA_WRITE              |
+    |"a+"         |FA_OPEN_APPEND | FA_WRITE | FA_READ    |
+    |"wx"         |FA_CREATE_NEW | FA_WRITE               |
+    |"w+x"        |FA_CREATE_NEW | FA_WRITE | FA_READ     |
+    |_____________|_______________________________________|
 */
 
 
@@ -37,70 +37,120 @@
 #define FILE_WRITE (FA_CREATE_ALWAYS | FA_WRITE | FA_READ)
 #define FILE_APPEND (FA_OPEN_APPEND | FA_WRITE)
 
+// #define SEEEDFS_DEBUG_MODE
+/* debug print function. Must be implement by user. */
+
+#ifdef SEEEDFS_DEBUG_MODE
+void seeed_fs_log_debug(const char *file, const long line, const char *format, ...);
+#ifndef SEEED_FS_DEBUG
+#define SEEED_FS_DEBUG(...) seeed_fs_log_debug(__FILE__, __LINE__, __VA_ARGS__)
+#endif /* SEEEDFS_DEBUG */
+#else
+#define SEEED_FS_DEBUG(...)
+#endif /* SEEEDFS_DEBUG_MODE */
+
+#ifndef SEEED_FS_INFO
+void seeed_fs_log_info(const char *file, const long line, const char *format, ...);
+#define SEEED_FS_INFO(...)  seeed_fs_log_info(__VA_ARGS__)
+#endif
+#define USESPIFLASH
 #include "fatfs/ff.h"
+#ifdef KENDRYTE_K210
+    #include <SPIClass.h>
+#else
+    #include <SPI.h>
+#endif
+namespace fs {
 
-namespace fs{
+    enum SeekMode {
+        SeekSet = 0,
+        SeekCur = 1,
+        SeekEnd = 2
+    };
 
-class File : public Stream {
- private:
-  char _name[_MAX_LFN+2]; // file name
-  FIL *_file;  // underlying file pointer
-  DIR *_dir;  // if open a dir
 
-public:
-  File(FIL f, const char *name);     // wraps an underlying SdFile
-  File(DIR d, const char *name);
-  File(void);      // 'empty' constructor
-  virtual size_t write(uint8_t);
-  virtual size_t write(const uint8_t *buf, size_t size);
-  virtual int read();
-  virtual int peek();
-  virtual int available();
-  virtual void flush();
-  long read(void *buf, uint32_t nbyte);
-  boolean seek(uint32_t pos);
-  uint32_t position();
-  uint32_t size();
-  void close();
-  operator bool();
-  char * name();
+    class File : public Stream {
+      private:
+        char _name[_MAX_LFN + 2]; // file name
+        FIL* _file;  // underlying file pointer
+        DIR* _dir;  // if open a dir
+        FILINFO* _fno; // for traverse directory
 
-  boolean isDirectory(void);
-  File openNextFile(uint8_t mode = FA_READ);
-  void rewindDirectory(void);
-  
-  using Print::write;
-};
-class FS
-{
-protected:
-  FATFS root;
-public:
-  // Open the specified file/directory with the supplied mode (e.g. read or
-  // write, etc). Returns a File object for interacting with the file.
-  // Note that currently only one file can be open at a time.
-  File open(const char *filepath, uint8_t mode = FILE_READ);
-  File open(const String &filepath, uint8_t mode = FILE_READ) { return open( filepath.c_str(), mode ); }
+      public:
+        File(FIL f, const char* name);     // wraps an underlying SdFile
+        File(DIR d, const char* name);
+        File(void);      // 'empty' constructor
+        ~File();
+        virtual size_t write(uint8_t);
+        virtual size_t write(const uint8_t* buf, size_t size);
+        virtual int read();
+        virtual int peek();
+        virtual int available();
+        virtual void flush();
+        long read(void* buf, uint32_t nbyte);
+        boolean seek(uint32_t pos);
+        bool seek(uint32_t pos, SeekMode mode);
+        uint32_t position();
+        uint32_t size();
+        void close();
+        operator bool();
+        char* name();
 
-  // Methods to determine if the requested file path exists.
-  boolean exists(const char *filepath);
-  boolean exists(const String &filepath) { return exists(filepath.c_str()); }
+        boolean isDirectory(void);
+        File openNextFile(uint8_t mode = FA_READ);
+        void rewindDirectory(void);
 
-  // Create the requested directory heirarchy--if intermediate directories
-  // do not exist they will be created.
-  boolean mkdir(const char *filepath);
-  boolean mkdir(const String &filepath) { return mkdir(filepath.c_str()); }
+        using Print::write;
+    };
+    class FS {
+      protected:
+        FATFS rootSD;
+        FATFS rootFLASH;
+      public:
+        // Open the specified file/directory with the supplied mode (e.g. read or
+        // write, etc). Returns a File object for interacting with the file.
+        // Note that currently only one file can be open at a time.
+        File open(const char* filepath, uint8_t mode = FILE_READ);
+        File open(const String& filepath, uint8_t mode = FILE_READ) {
+            return open(filepath.c_str(), mode);
+        }
+        File open(const char* filepath, const char* mode);
+        File open(const String& filepath, const char* mode) {
+            return open(filepath.c_str(), mode);
+        }
 
-  boolean rename(const char* pathFrom, const char* pathTo);
-  boolean rename(const String& pathFrom, const String& pathTo){return rename(pathFrom.c_str(), pathTo.c_str());};
-  
-  // Delete the file.
-  boolean remove(const char *filepath);
-  boolean remove(const String &filepath) { return remove(filepath.c_str()); }
-  
-  boolean rmdir(const char *filepath);
-  boolean rmdir(const String &filepath) { return rmdir(filepath.c_str()); }
+        // Methods to determine if the requested file path exists.
+        boolean exists(const char* filepath);
+        boolean exists(const String& filepath) {
+            return exists(filepath.c_str());
+        }
+
+        // Create the requested directory heirarchy--if intermediate directories
+        // do not exist they will be created.
+        boolean mkdir(const char* filepath);
+        boolean mkdir(const String& filepath) {
+            return mkdir(filepath.c_str());
+        }
+
+        boolean rename(const char* pathFrom, const char* pathTo);
+        boolean rename(const String& pathFrom, const String& pathTo) {
+            return rename(pathFrom.c_str(), pathTo.c_str());
+        };
+
+        // Delete the file.
+        boolean remove(const char* filepath);
+        boolean remove(const String& filepath) {
+            return remove(filepath.c_str());
+        }
+
+        boolean rmdir(const char* filepath);
+        boolean rmdir(const String& filepath) {
+            return rmdir(filepath.c_str());
+        }
+    };
 };
 using namespace fs;
-};
+
+
+
 #endif
