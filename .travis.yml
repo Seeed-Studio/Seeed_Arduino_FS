@@ -12,7 +12,7 @@ before_install:
 script:
    - chmod +x seeed-arduino-ci.sh
    - cat $PWD/seeed-arduino-ci.sh
-   - bash $PWD/seeed-arduino-ci.sh listfiles:uno/Multi_partition:uno/ReadWrite:uno/SD_Test:uno https://github.com/Seeed-Studio/Seeed_Arduino_SFUD
+   - bash $PWD/seeed-arduino-ci.sh listfiles:uno/Multi_partition:uno/ReadWrite:uno/SD_Test:uno Seeed-Studio/Seeed_Arduino_SFUD.git
 
 notifications:
   email:
