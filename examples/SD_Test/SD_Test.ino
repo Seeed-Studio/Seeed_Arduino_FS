@@ -202,7 +202,7 @@ void setup() {
 #ifdef USESPIFLASH
     uint8_t flashType = DEV.flashType();
     if (flashType == FLASH_NONE) {
-        SERIAL.println("No SD card attached");
+        SERIAL.println("No flash attached");
         return;
     }
 #else
@@ -214,8 +214,8 @@ void setup() {
 #endif 
 
 #ifdef USESPIFLASH
-    uint8_t flashSize = DEV.flashSize() / (1024 * 1024);
-    SERIAL.print("SD Card Size: ");
+    uint32_t flashSize = DEV.flashSize() / (1024 * 1024);
+    SERIAL.print("flash Size: ");
     SERIAL.print((uint32_t)flashSize);
     SERIAL.println("MB");
 #else
