@@ -9,8 +9,17 @@ An Arduino library for the file operation.there exist FAT file systems in this l
 **this code has been tested at wio terminal.**
 
 ```c++
+
+#include <Seeed_FS.h>
 #define SERIAL Serial
+#ifdef USESPIFLASH    // if you want to use flash FS . default mode is spi mode
+#define DEV SPIFLASH
+#include "SFUD/Seeed_SFUD.h"
+#else                 // if you want to use SD FS
 #define DEV SD
+#include "SD/Seeed_SD.h"
+#endif
+
 void setup() {
     // Open SERIAL communications and wait for port to open:
     SERIAL.begin(115200);
@@ -18,11 +27,14 @@ void setup() {
         ; // wait for SERIAL port to connect. Needed for native USB port only
     }
 
-    SERIAL.print("Initializing SD card...");
+    //init SPI flash or SPI SD card determined by USESPIFLASH
+    SERIAL.print("Initializing storage device...");
     while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
         SERIAL.println("Card Mount Failed");
         return;
     }
+    //you can use DEV.begin(104000000UL) to init device if you want to use QSPI flash.
+
     SERIAL.println("initialization done.");
     listDir(DEV, "/", 0);
     SERIAL.println("done!");
@@ -62,6 +74,7 @@ void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
         file = root.openNextFile();
     }
 }
+
 ```
 
 ## API Reference
@@ -73,7 +86,9 @@ DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)
 // DEV.begin(104000000UL) //use qspi flash
 ```
 
-- sdcard_type_t  cardType() : get SD card type
+- sdcard_type_t  cardType() : get SD card type 
+
+**Note** : only work with SD card
 
 ```c++
     uint8_t cardType = DEV.cardType();
@@ -85,6 +100,8 @@ DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)
 
 - sfud_type_t   flashType() : get flash type
 
+**Note** : only work with flash
+
 ```c++
     uint8_t flashType = DEV.flashType();
     if (flashType == FLASH_NONE) {
@@ -93,21 +110,25 @@ DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)
     }
 ```
 
-- uint64_t    flashSize() : get flash size
-
-```c++
-    uint32_t flashSize = DEV.flashSize() / (1024 * 1024);
-    SERIAL.print("flash Size: ");
-    SERIAL.print((uint32_t)flashSize);
-    SERIAL.println("MB");
-```
-
 - uint64_t cardSize(): get SD card size
+
+**Note** : only work with SD card
 
 ```c++
     uint64_t cardSize = DEV.cardSize() / (1024 * 1024);
     SERIAL.print("SD Card Size: ");
     SERIAL.print((uint32_t)cardSize);
+    SERIAL.println("MB");
+```
+
+- uint64_t    flashSize() : get flash size
+
+**Note** : only work with flash
+
+```c++
+    uint32_t flashSize = DEV.flashSize() / (1024 * 1024);
+    SERIAL.print("flash Size: ");
+    SERIAL.print((uint32_t)flashSize);
     SERIAL.println("MB");
 ```
 
