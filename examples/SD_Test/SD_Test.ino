@@ -9,7 +9,7 @@
 */
 
 #include <Seeed_FS.h>
-
+#undef USESPIFLASH
 #ifdef USESPIFLASH
 #define DEV SPIFLASH
 #include "SFUD/Seeed_SFUD.h"
