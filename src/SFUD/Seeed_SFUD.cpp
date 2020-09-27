@@ -50,7 +50,7 @@ namespace fs {
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (status == FR_NO_FILESYSTEM){
-            BYTE work[512]; /* Work area (larger is better for processing time) */
+            BYTE work[SECTORSIZE]; /* Work area (larger is better for processing time) */
             FRESULT ret;
             ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
             SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);

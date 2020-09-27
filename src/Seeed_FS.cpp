@@ -432,12 +432,11 @@ void seeed_fs_log_debug(const char *file, const long line, const char *format, .
 
     /* args point to the first variable parameter */
     va_start(args, format);
-
-    printf("[SEEED_FS](%s:%ld) ", file, line);
+    Serial.print("[SEEED_FS] ");
+    Serial.println(log_buf);
     /* must use vprintf to print */
     vsnprintf(log_buf, sizeof(log_buf), format, args);
-
-    printf("%s\n", log_buf);
+    Serial.println(log_buf);
     va_end(args);
 }
 
@@ -452,10 +451,10 @@ void seeed_fs_log_info(const char *format, ...) {
 
     /* args point to the first variable parameter */
     va_start(args, format);
-    printf("[SEEED_FS]");
+    Serial.print("[SEEED_FS INFO] ");
     /* must use vprintf to print */
     vsnprintf(log_buf, sizeof(log_buf), format, args);
-    printf("%s\n", log_buf);
+    Serial.println(log_buf);
     va_end(args);
 }
 

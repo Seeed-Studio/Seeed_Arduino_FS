@@ -28,7 +28,7 @@ typedef enum {
     FLASH_SPI
 } sfud_type_t;
 
-#define SECTORSIZE 512
+#define SECTORSIZE 4096
 
 typedef struct {
     uint8_t ssPin;
