@@ -256,7 +256,7 @@ namespace fs {
         }
     }
 
-    File::operator bool() {
+    File::operator bool() const {
         if (_file || _dir) {
             return true;
         }

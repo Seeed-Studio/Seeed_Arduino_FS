@@ -93,7 +93,7 @@ namespace fs {
         uint32_t position();
         uint32_t size();
         void close();
-        operator bool();
+        operator bool() const;
         char* name();
 
         boolean isDirectory(void);
