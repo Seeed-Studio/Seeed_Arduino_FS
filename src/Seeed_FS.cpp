@@ -85,14 +85,14 @@ namespace fs {
         }
         ret = f_write(_file, buf, size, &t);
         SEEED_FS_DEBUG("The status of f_write : %d",ret);
-        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (FR_OK == ret){
             return t;
         }
         return false;
         // ret = f_write(_file, buf, size, &t);
         // SEEED_FS_DEBUG("The status of f_write : %d",ret);
-        // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");        
+        // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         // if (FR_OK == ret){
         //     return t;
         // }
@@ -127,10 +127,10 @@ namespace fs {
         if (!_file) {
             return 0;
         }
-        if (f_read(_file, buf, nbyte, &t) == -1) {
-            return 0;
-        } else {
+        if (f_read(_file, buf, nbyte, &t) == FR_OK) {
             return t;
+        } else {
+            return 0;
         }
     }
 
@@ -283,7 +283,7 @@ namespace fs {
                 return File(dir, filepath);
             } else {
                 return File();
-            }            
+            }
         }
         if(!strcmp(filepath, "/")){
             DIR dir;
@@ -291,7 +291,7 @@ namespace fs {
                 return File(dir, filepath);
             } else {
                 return File();
-            }                
+            }
         }
         if ((ret = f_stat(filepath, &v_fileinfo)) == FR_OK) {
             if (v_fileinfo.fattrib & AM_DIR) {
@@ -457,4 +457,3 @@ void seeed_fs_log_info(const char *format, ...) {
     Serial.println(log_buf);
     va_end(args);
 }
-
