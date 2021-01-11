@@ -71,7 +71,7 @@ extern "C" {
 #define SD_NOT_PRESENT           0U
 
 #define SECTORSIZE 4096
-
+#define ENABLE_SD_DMA_CACHE_MAINTENANCE  1
 
 static SD_HandleTypeDef hsd1;
 static volatile DSTATUS Stat = STA_NOINIT;
@@ -149,7 +149,7 @@ void HAL_SD_MspInit(SD_HandleTypeDef* hsd)
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
     /* SDMMC1 interrupt Init */
-    HAL_NVIC_SetPriority(SDMMC1_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(SDMMC1_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(SDMMC1_IRQn);
   /* USER CODE BEGIN SDMMC1_MspInit 1 */
 
@@ -363,7 +363,7 @@ static DSTATUS SD_CheckStatus(BYTE lun)
   {
     Stat &= ~STA_NOINIT;
   }
-
+  printf("SD_CheckStatus:%d \r\n", Stat);
   return Stat;
 }
 
@@ -374,6 +374,7 @@ static DSTATUS SD_CheckStatus(BYTE lun)
   */
 DSTATUS SD_initialize(BYTE lun)
 {
+    SD_ClockConfig();
   if(MX_SDMMC1_SD_Init()== BSP_ERROR_NONE)
   {
     Stat = SD_CheckStatus(lun);
@@ -445,7 +446,14 @@ DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
       }
     }
   }
-
+  int i = 0;
+  if (sector == 0){
+      printf("%x  %x  %x  %x  %x  %x  %x  %x  \r\n", buff[31], buff[32],buff[33],buff[34],buff[35],buff[36],buff[37],buff[38]);
+      printf("%x  %x  %x  %x  %x  %x  %x  %x  \r\n", buff[39], buff[40],buff[41],buff[42],buff[43],buff[44],buff[45],buff[46]);
+  }
+  printf("%x %x  %x \r\n",buff[510 ], buff[511], buff[512]);
+   printf("\r\n");
+    printf("%s:sector:%d  count: %d  ret:%d \r\n", __func__,sector, count, res);
   return res;
 }
 
@@ -468,6 +476,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
   * If needed, check the file "Middlewares/Third_Party/FatFs/src/drivers/sd_diskio_dma_template.c"
   * to see how the cache is maintained during the write operations.
   */
+  
 
   if(BSP_SD_WriteBlocks_DMA(0, (uint32_t*)buff,
                             (uint32_t)(sector),
@@ -499,7 +508,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
       }
     }
   }
-
+    printf("%s:sector:%d  count: %d  ret:%d \r\n", __func__,sector, count, res);
   return res;
 }
 
@@ -512,7 +521,7 @@ DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
   */
 DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
 {
-  DRESULT res = RES_ERROR;
+  uint8_t res = RES_ERROR;
   HAL_SD_CardInfoTypeDef CardInfo;
 
   if (Stat & STA_NOINIT) return RES_NOTRDY;
@@ -526,30 +535,27 @@ DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
 
   /* Get number of sectors on the disk (DWORD) */
   case GET_SECTOR_COUNT :
-    BSP_SD_GetCardInfo(0, &CardInfo);
+    res = BSP_SD_GetCardInfo(0, &CardInfo);
     *(DWORD*)buff = CardInfo.LogBlockNbr;
-    res = RES_OK;
     break;
 
   /* Get R/W sector size (WORD) */
   case GET_SECTOR_SIZE :
-    BSP_SD_GetCardInfo(0, &CardInfo);
+    res = BSP_SD_GetCardInfo(0, &CardInfo);
     *(WORD*)buff = CardInfo.LogBlockSize;
-    res = RES_OK;
     break;
 
   /* Get erase block size in unit of sector (DWORD) */
   case GET_BLOCK_SIZE :
-    BSP_SD_GetCardInfo(0, &CardInfo);
+    res = BSP_SD_GetCardInfo(0, &CardInfo);
     *(DWORD*)buff = CardInfo.LogBlockSize / SD_DEFAULT_BLOCK_SIZE;
-	res = RES_OK;
     break;
 
   default:
     res = RES_PARERR;
   }
-
-  return res;
+  printf("cmd: %d  sector_count: %d  sector: %d block: %d \r\n",cmd, CardInfo.LogBlockNbr, CardInfo.LogBlockSize,  CardInfo.LogBlockSize / SD_DEFAULT_BLOCK_SIZE);
+  return (DRESULT)res;
 }
 
 /**
@@ -575,6 +581,26 @@ void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
     WriteStatus = 1;
 }
 
+/******************************************************************************/
+/* STM32H7xx Peripheral Interrupt Handlers                                    */
+/* Add here the Interrupt Handlers for the used peripherals.                  */
+/* For the available peripheral interrupt handler names,                      */
+/* please refer to the startup file (startup_stm32h7xx.s).                    */
+/******************************************************************************/
+
+/**
+  * @brief This function handles SDMMC1 global interrupt.
+  */
+void SDMMC1_IRQHandler(void)
+{
+  /* USER CODE BEGIN SDMMC1_IRQn 0 */
+
+  /* USER CODE END SDMMC1_IRQn 0 */
+  HAL_SD_IRQHandler(&hsd1);
+  /* USER CODE BEGIN SDMMC1_IRQn 1 */
+
+  /* USER CODE END SDMMC1_IRQn 1 */
+}
 
 } //extern "C"
 
@@ -615,16 +641,16 @@ namespace fs {
         FRESULT status;
         _drv[0] = _T('0' + _pdrv);
         status = f_mount(&rootFLASH, _drv, 1);
-        SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
-        SEEED_FS_DEBUG("The status of f_mount : %d",status);
-        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
+        SEEED_FS_DEBUG("The available drive number : %d\r\n",_pdrv);
+        SEEED_FS_DEBUG("The status of f_mount : %d\r\n",status);
+        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");
         if (status == FR_NO_FILESYSTEM){
-            BYTE work[SECTORSIZE]; /* Work area (larger is better for processing time) */
-            FRESULT ret;
-            ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
-            SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
-            SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
-            status = f_mount(&rootFLASH,_drv, 1);
+            // BYTE work[SECTORSIZE]; /* Work area (larger is better for processing time) */
+            // FRESULT ret;
+            // ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
+            // SEEED_FS_DEBUG("The status of f_mkfs : %d\r\n",ret);
+            // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");            
+            // status = f_mount(&rootFLASH,_drv, 1);
         }
         if (status != FR_OK) {
             return false;
@@ -640,6 +666,7 @@ namespace fs {
         //     sdcard_uninit(_pdrv);
         //     _pdrv = 0xFF;
         // }
+        printf("end\r\n");
     }
 
     uint64_t SDMMCFS::cardSize() {
@@ -649,6 +676,7 @@ namespace fs {
         // size_t sectors = sdcard_num_sectors(_pdrv);
         // size_t sectorSize = sdcard_sector_size(_pdrv);
         // return (uint64_t)sectors * sectorSize;
+         printf("cardSize\r\n");
     }
 
 
@@ -665,6 +693,7 @@ namespace fs {
         //                 * 512;
         //                 #endif
         // return size;
+        printf("totalBytes\r\n");
         return 0;
     }
 
@@ -681,6 +710,7 @@ namespace fs {
         //                 * 512;
         //                 #endif
         // return size;
+        printf("totalBytes\r\n");
         return 0;
     }
 };
