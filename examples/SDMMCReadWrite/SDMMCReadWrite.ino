@@ -27,28 +27,29 @@ SDMMCFS SDMMC;
 
 
 void setup() {
-    while (!DEV.begin(0,4000000UL)) {
-        return;
+    printf("initialization done..\r\n");
+    if (!DEV.begin(0,4000000UL)) {
+        printf("initialization error.\r\n");
     }
     printf("initialization done.\r\n");
 
     // open the file. note that only one file can be open at a time,
     // so you have to close this one before opening another.
 
-    File RootWrite = DEV.open("/hello.txt", "w");
-    // File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
+    // File RootWrite = DEV.open("/hello.txt", "w");
+    // // File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
 
-    // if the file opened okay, write to it:
-    if (RootWrite) {
-        printf("Writing to hello.txt...\r\n");
-        RootWrite.println("hello 1, 2, 3.");
-        // close the file:
-        RootWrite.close();
-        printf("done.\r\n");
-    } else {
-        // if the file didn't open, print an error:
-        printf("error opening hello.txt\r\n");
-    }
+    // // if the file opened okay, write to it:
+    // if (RootWrite) {
+    //     printf("Writing to hello.txt...\r\n");
+    //     RootWrite.println("hello 1, 2, 3.");
+    //     // close the file:
+    //     RootWrite.close();
+    //     printf("done.\r\n");
+    // } else {
+    //     // if the file didn't open, print an error:
+    //     printf("error opening hello.txt\r\n");
+    // }
     
     // re-open the file for reading:
     File RootRead= DEV.open("/hello.txt");
