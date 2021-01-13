@@ -14,7 +14,7 @@
 #include <assert.h>
 #include "integer.h"
 
-static ff_diskio_impl_t * s_impls[_VOLUMES] = { NULL };
+static ff_diskio_impl_t * s_impls[FF_VOLUMES] = { NULL };
 
 #if _MULTI_PARTITION    /* Multiple partition configuration */
 PARTITION VolToPart[] = {
@@ -27,7 +27,7 @@ PARTITION VolToPart[] = {
 uint8_t ff_diskio_get_drive(BYTE* out_pdrv)
 {
     BYTE i;
-    for(i=0; i<_VOLUMES; i++) {
+    for(i=0; i<FF_VOLUMES; i++) {
         if (!s_impls[i]) {
             *out_pdrv = i;
             return 0;
@@ -38,7 +38,7 @@ uint8_t ff_diskio_get_drive(BYTE* out_pdrv)
 
 void ff_diskio_register(BYTE pdrv, const ff_diskio_impl_t* discio_impl)
 {
-    assert(pdrv < _VOLUMES);
+    assert(pdrv < FF_VOLUMES);
 
     if (s_impls[pdrv]) {
         ff_diskio_impl_t* im = s_impls[pdrv];
@@ -75,4 +75,13 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count)
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff)
 {
     return s_impls[pdrv]->ioctl(pdrv, cmd, buff);
+}
+/**
+  * @brief  Gets Time from RTC
+  * @param  None
+  * @retval Time in DWORD
+  */
+__weak DWORD get_fattime (void)
+{
+  return 0;
 }
