@@ -71,7 +71,7 @@ namespace fs {
 
     class File : public Stream {
       private:
-        char _name[_MAX_LFN + 2]; // file name
+        char _name[FF_MAX_LFN + 2]; // file name
         FIL* _file;  // underlying file pointer
         DIR* _dir;  // if open a dir
         FILINFO* _fno; // for traverse directory
