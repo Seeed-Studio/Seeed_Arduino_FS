@@ -386,7 +386,7 @@ namespace fs {
     }
 
     boolean FS::rmdir(const char* filepath) {
-        char file[_MAX_LFN + 2];
+        char file[FF_MAX_LFN + 2];
         FRESULT status;
         DIR dj;
         FILINFO fno;
