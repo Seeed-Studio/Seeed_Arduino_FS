@@ -1,8 +1,9 @@
+#ifdef ARDUINO_Seeeduino_H7AI
 #include "SDMMC/Seeed_SDMMC.h"
 #include <Seeed_FS.h>
 #include "Arduino.h"
 
-#define SEEED_FS_DEBUG printf
+#define ARDUINO_FS_DEBUG printf
 extern "C" {
 #include "stm32h7xx_hal.h"
 #include "../fatfs/diskio.h"
@@ -72,10 +73,22 @@ extern "C" {
 
 #define SECTORSIZE 4096
 #define ENABLE_SD_DMA_CACHE_MAINTENANCE  1
+#define ENABLE_SCRATCH_BUFFER 1
 
 static SD_HandleTypeDef hsd1;
 static volatile DSTATUS Stat = STA_NOINIT;
 static volatile  UINT  WriteStatus = 0, ReadStatus = 0;
+ 
+
+#if defined(ENABLE_SCRATCH_BUFFER)
+#if defined (ENABLE_SD_DMA_CACHE_MAINTENANCE)
+ALIGN_32BYTES(static uint8_t scratch[BLOCKSIZE]); // 32-Byte aligned for cache maintenance
+#else
+__ALIGN_BEGIN static uint8_t scratch[BLOCKSIZE] __ALIGN_END;
+#endif
+#endif
+
+
 
 /**
  * @brief  Configure SDMMC clock
@@ -259,6 +272,8 @@ int32_t BSP_SD_ReadBlocks_DMA(uint32_t Instance, uint32_t *pData, uint32_t Block
   return ret;
 }
 
+
+
 /**
   * @brief  Writes block(s) to a specified address in an SD card, in DMA mode.
   * @param  Instance   SD Instance
@@ -328,6 +343,21 @@ int32_t BSP_SD_GetCardState(uint32_t Instance)
   return (int32_t)((HAL_SD_GetCardState(&hsd1) == HAL_SD_CARD_TRANSFER ) ? SD_TRANSFER_OK : SD_TRANSFER_BUSY);
 }
 
+static int SD_CheckStatusWithTimeout(uint32_t timeout)
+{
+  uint32_t timer = HAL_GetTick();
+  /* block until SDIO IP is ready again or a timeout occur */
+  while(HAL_GetTick() - timer < timeout)
+  {
+    if (BSP_SD_GetCardState(0) == SD_TRANSFER_OK)
+    {
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
 /**
   * @brief  Get SD information about specific SD card.
   * @param  Instance  SD Instance
@@ -363,7 +393,6 @@ static DSTATUS SD_CheckStatus(BYTE lun)
   {
     Stat &= ~STA_NOINIT;
   }
-  printf("SD_CheckStatus:%d \r\n", Stat);
   return Stat;
 }
 
@@ -392,123 +421,235 @@ DSTATUS SD_status(BYTE lun)
   return SD_CheckStatus(lun);
 }
 
+
 /**
-  * @brief  Reads Sector(s)
-  * @param  lun : not used
-  * @param  *buff: Data buffer to store read data
-  * @param  sector: Sector address (LBA)
-  * @param  count: Number of sectors to read (1..128)
-  * @retval DRESULT: Operation result
-  */
+* @brief  Reads Sector(s)
+* @param  lun : not used
+* @param  *buff: Data buffer to store read data
+* @param  sector: Sector address (LBA)
+* @param  count: Number of sectors to read (1..128)
+* @retval DRESULT: Operation result
+*/
 DRESULT SD_read(BYTE lun, BYTE *buff, DWORD sector, UINT count)
 {
   DRESULT res = RES_ERROR;
-  ReadStatus = 0;
   uint32_t timeout;
+#if defined(ENABLE_SCRATCH_BUFFER)
+  uint8_t ret;
+#endif
 #if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
   uint32_t alignedAddr;
 #endif
 
-  if(BSP_SD_ReadBlocks_DMA(0, (uint32_t*)buff,
-                           (uint32_t) (sector),
-                           count) == BSP_ERROR_NONE)
-  {
-    /* Wait that the reading process is completed or a timeout occurs */
-    timeout = HAL_GetTick();
-    while((ReadStatus == 0) && ((HAL_GetTick() - timeout) < SD_TIMEOUT))
-    {
-    }
-    /* incase of a timeout return error */
-    if (ReadStatus == 0)
-    {
-      res = RES_ERROR;
-    }
-    else
-    {
-      ReadStatus = 0;
-      timeout = HAL_GetTick();
+  /*
+  * ensure the SDCard is ready for a new operation
+  */
 
-      while((HAL_GetTick() - timeout) < SD_TIMEOUT)
+  if (SD_CheckStatusWithTimeout(SD_TIMEOUT) < 0)
+  {
+    return res;
+  }
+
+#if defined(ENABLE_SCRATCH_BUFFER)
+  if (!((uint32_t)buff & 0x3))
+  {
+#endif
+    ReadStatus = 0;
+
+    if(BSP_SD_ReadBlocks_DMA(0,(uint32_t*)buff,
+                             (uint32_t)(sector), count) == BSP_ERROR_NONE)
+    {
+      /* Wait that the reading process is completed or a timeout occurs */
+      timeout = HAL_GetTick();
+      while((ReadStatus == 0) && ((HAL_GetTick() - timeout) < SD_TIMEOUT))
       {
-        if (BSP_SD_GetCardState(0) == SD_TRANSFER_OK)
+      }
+      /* incase of a timeout return error */
+      if (ReadStatus == 0)
+      {
+        res = RES_ERROR;
+      }
+      else
+      {
+        ReadStatus = 0;
+        timeout = HAL_GetTick();
+
+        while((HAL_GetTick() - timeout) < SD_TIMEOUT)
         {
-          res = RES_OK;
+          if (BSP_SD_GetCardState(0) == SD_TRANSFER_OK)
+          {
+            res = RES_OK;
 #if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
             /*
-               the SCB_InvalidateDCache_by_Addr() requires a 32-Byte aligned address,
-               adjust the address and the D-Cache size to invalidate accordingly.
-             */
+            the SCB_InvalidateDCache_by_Addr() requires a 32-Byte aligned address,
+            adjust the address and the D-Cache size to invalidate accordingly.
+            */
             alignedAddr = (uint32_t)buff & ~0x1F;
             SCB_InvalidateDCache_by_Addr((uint32_t*)alignedAddr, count*BLOCKSIZE + ((uint32_t)buff - alignedAddr));
 #endif
-           break;
+            break;
+          }
         }
       }
     }
+#if defined(ENABLE_SCRATCH_BUFFER)
   }
-  int i = 0;
-  if (sector == 0){
-      printf("%x  %x  %x  %x  %x  %x  %x  %x  \r\n", buff[31], buff[32],buff[33],buff[34],buff[35],buff[36],buff[37],buff[38]);
-      printf("%x  %x  %x  %x  %x  %x  %x  %x  \r\n", buff[39], buff[40],buff[41],buff[42],buff[43],buff[44],buff[45],buff[46]);
-  }
-  printf("%x %x  %x \r\n",buff[510 ], buff[511], buff[512]);
-   printf("\r\n");
-    printf("%s:sector:%d  count: %d  ret:%d \r\n", __func__,sector, count, res);
+    else
+    {
+      /* Slow path, fetch each sector a part and memcpy to destination buffer */
+      int i;
+
+      for (i = 0; i < count; i++) {
+        ret = BSP_SD_ReadBlocks_DMA(0, (uint32_t*)scratch, (uint32_t)sector++, 1);
+        if (ret == BSP_ERROR_NONE ) {
+          /* wait until the read is successful or a timeout occurs */
+
+          timeout = HAL_GetTick();
+          while((ReadStatus == 0) && ((HAL_GetTick() - timeout) < SD_TIMEOUT))
+          {
+          }
+          if (ReadStatus == 0)
+          {
+            res = RES_ERROR;
+            break;
+          }
+          ReadStatus = 0;
+
+#if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
+          /*
+          *
+          * invalidate the scratch buffer before the next read to get the actual data instead of the cached one
+          */
+          SCB_InvalidateDCache_by_Addr((uint32_t*)scratch, BLOCKSIZE);
+#endif
+          memcpy(buff, scratch, BLOCKSIZE);
+          buff += BLOCKSIZE;
+        }
+        else
+        {
+          break;
+        }
+      }
+
+      if ((i == count) && (ret == BSP_ERROR_NONE ))
+        res = RES_OK;
+    }
+#endif
+
   return res;
 }
 
 /**
-  * @brief  Writes Sector(s)
-  * @param  lun : not used
-  * @param  *buff: Data to be written
-  * @param  sector: Sector address (LBA)
-  * @param  count: Number of sectors to write (1..128)
-  * @retval DRESULT: Operation result
-  */
+* @brief  Writes Sector(s)
+* @param  lun : not used
+* @param  *buff: Data to be written
+* @param  sector: Sector address (LBA)
+* @param  count: Number of sectors to write (1..128)
+* @retval DRESULT: Operation result
+*/
 DRESULT SD_write(BYTE lun, const BYTE *buff, DWORD sector, UINT count)
 {
   DRESULT res = RES_ERROR;
-  WriteStatus = 0;
   uint32_t timeout;
- /*
-  * since the MPU is configured as write-through, see main.c file, there isn't any need
-  * to maintain the cache as its content is always coherent with the memory.
-  * If needed, check the file "Middlewares/Third_Party/FatFs/src/drivers/sd_diskio_dma_template.c"
-  * to see how the cache is maintained during the write operations.
-  */
-  
+#if defined(ENABLE_SCRATCH_BUFFER)
+  uint8_t ret;
+  int i;
+#endif
+   WriteStatus = 0;
+#if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
+  uint32_t alignedAddr;
+#endif
 
-  if(BSP_SD_WriteBlocks_DMA(0, (uint32_t*)buff,
-                            (uint32_t)(sector),
-                            count) == BSP_ERROR_NONE)
+  if (SD_CheckStatusWithTimeout(SD_TIMEOUT) < 0)
   {
-    /* Wait that writing process is completed or a timeout occurs */
+    return res;
+  }
 
-    timeout = HAL_GetTick();
-    while((WriteStatus == 0) && ((HAL_GetTick() - timeout) < SD_TIMEOUT))
+#if defined(ENABLE_SCRATCH_BUFFER)
+  if (!((uint32_t)buff & 0x3))
+  {
+#endif
+#if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
+
+    /*
+    the SCB_CleanDCache_by_Addr() requires a 32-Byte aligned address
+    adjust the address and the D-Cache size to clean accordingly.
+    */
+    alignedAddr = (uint32_t)buff &  ~0x1F;
+    SCB_CleanDCache_by_Addr((uint32_t*)alignedAddr, count*BLOCKSIZE + ((uint32_t)buff - alignedAddr));
+#endif
+
+
+    if(BSP_SD_WriteBlocks_DMA(0, (uint32_t*)buff,
+                              (uint32_t)(sector),
+                              count) == BSP_ERROR_NONE )
     {
-    }
-    /* incase of a timeout return error */
-    if (WriteStatus == 0)
-    {
-      res = RES_ERROR;
-    }
-    else
-    {
-      WriteStatus = 0;
+      /* Wait that writing process is completed or a timeout occurs */
       timeout = HAL_GetTick();
-
-      while((HAL_GetTick() - timeout) < SD_TIMEOUT)
+      while((WriteStatus == 0) && ((HAL_GetTick() - timeout) < SD_TIMEOUT))
       {
-        if (BSP_SD_GetCardState(0) == SD_TRANSFER_OK)
+      }
+      /* incase of a timeout return error */
+      if (WriteStatus == 0)
+      {
+        res = RES_ERROR;
+      }
+      else
+      {
+        WriteStatus = 0;
+        timeout = HAL_GetTick();
+
+        while((HAL_GetTick() - timeout) < SD_TIMEOUT)
         {
-          res = RES_OK;
-          break;
+          if (BSP_SD_GetCardState(0) == SD_TRANSFER_OK)
+          {
+            res = RES_OK;
+            break;
+          }
         }
       }
     }
+#if defined(ENABLE_SCRATCH_BUFFER)
   }
-    printf("%s:sector:%d  count: %d  ret:%d \r\n", __func__,sector, count, res);
+  else
+  {
+      /* Slow path, fetch each sector a part and memcpy to destination buffer */
+#if (ENABLE_SD_DMA_CACHE_MAINTENANCE == 1)
+      /*
+      * invalidate the scratch buffer before the next write to get the actual data instead of the cached one
+      */
+      SCB_InvalidateDCache_by_Addr((uint32_t*)scratch, BLOCKSIZE);
+#endif
+
+      for (i = 0; i < count; i++)
+      {
+        WriteStatus = 0;
+
+        memcpy((void *)scratch, (void *)buff, BLOCKSIZE);
+        buff += BLOCKSIZE;
+
+        ret = BSP_SD_WriteBlocks_DMA(0, (uint32_t*)scratch, (uint32_t)sector++, 1);
+        if (ret == BSP_ERROR_NONE ) {
+          /* wait for a message from the queue or a timeout */
+          timeout = HAL_GetTick();
+          while((WriteStatus == 0) && (HAL_GetTick() - timeout < SD_TIMEOUT))
+          {
+          }
+          if (WriteStatus == 0)
+          {
+            break;
+          }
+
+        }
+        else
+        {
+          break;
+        }
+      }
+      if ((i == count) && (ret == BSP_ERROR_NONE ))
+        res = RES_OK;
+  }
+#endif
   return res;
 }
 
@@ -554,7 +695,6 @@ DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
   default:
     res = RES_PARERR;
   }
-  printf("cmd: %d  sector_count: %d  sector: %d block: %d \r\n",cmd, CardInfo.LogBlockNbr, CardInfo.LogBlockSize,  CardInfo.LogBlockSize / SD_DEFAULT_BLOCK_SIZE);
   return (DRESULT)res;
 }
 
@@ -565,8 +705,6 @@ DRESULT SD_ioctl(BYTE lun, BYTE cmd, void *buff)
   */
 void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
 {
-//   SCB_InvalidateDCache_by_Addr((uint32_t*)aRxBuffer, BUFFER_WORD_SIZE*4);
-//   RxCplt=1;
     ReadStatus = 1;
 }
 
@@ -577,7 +715,6 @@ void HAL_SD_RxCpltCallback(SD_HandleTypeDef *hsd)
   */
 void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
 {
-//   TxCplt=1;
     WriteStatus = 1;
 }
 
@@ -593,13 +730,7 @@ void HAL_SD_TxCpltCallback(SD_HandleTypeDef *hsd)
   */
 void SDMMC1_IRQHandler(void)
 {
-  /* USER CODE BEGIN SDMMC1_IRQn 0 */
-
-  /* USER CODE END SDMMC1_IRQn 0 */
   HAL_SD_IRQHandler(&hsd1);
-  /* USER CODE BEGIN SDMMC1_IRQn 1 */
-
-  /* USER CODE END SDMMC1_IRQn 1 */
 }
 
 } //extern "C"
@@ -610,26 +741,10 @@ void SDMMC1_IRQHandler(void)
 namespace fs {
 
     boolean SDMMCFS::begin(uint8_t ssPin, int hz) {
-        // _pdrv = sdcard_init(ssPin, &spi, hz);
-        // spi.begin();
-        // FRESULT status;
-        // _drv[0] = _T('0' + _pdrv);
-        // status = f_mount(&rootSD, _drv, 1);
-        // if (status != FR_OK) {
-        //     return false;
-        // } else {
-        //     return true;
-        // }
         _pdrv = 0xff;
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
         }      
-        // ardu_sfud_t* flash_t = (ardu_sfud_t*)malloc(sizeof(ardu_sfud_t));
-        // flash_t->type = FLASH_NONE;
-        // flash_t->status = STA_NOINIT;
-        // flash_t->sector_size = SECTORSIZE; 
-        
-        // s_sfuds[_pdrv] = flash_t; 
         static const ff_diskio_impl_t flash_impl = {
             .init = &SD_initialize,
             .status = &SD_status,
@@ -640,17 +755,23 @@ namespace fs {
         ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
         _drv[0] = _T('0' + _pdrv);
-        status = f_mount(&rootFLASH, _drv, 1);
-        SEEED_FS_DEBUG("The available drive number : %d\r\n",_pdrv);
-        SEEED_FS_DEBUG("The status of f_mount : %d\r\n",status);
-        SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");
+        status = f_mount(&rootFLASH, _drv, 0);
+        // ARDUINO_FS_DEBUG("The available drive number : %d\r\n",_pdrv);
+        // ARDUINO_FS_DEBUG("The status of f_mount : %d\r\n",status);
+        // ARDUINO_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");
         if (status == FR_NO_FILESYSTEM){
-            // BYTE work[SECTORSIZE]; /* Work area (larger is better for processing time) */
-            // FRESULT ret;
-            // ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
-            // SEEED_FS_DEBUG("The status of f_mkfs : %d\r\n",ret);
-            // SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");            
-            // status = f_mount(&rootFLASH,_drv, 1);
+            uint8_t work[FF_MAX_SS]; /* Work area (larger is better for processing time) */
+            MKFS_PARM opt ={0};
+            opt.fmt    = FM_FAT32;/* Format option (FM_FAT, FM_FAT32, FM_EXFAT and FM_SFD) */
+            opt.n_fat  = 0;     /* Number of FATs   (copies ? ) */
+            opt.n_root = 512;     /* Number of root directory entries */
+            opt.au_size = 512;      /* Cluster size (byte) */
+
+            FRESULT ret;
+            ret = f_mkfs(_drv, &opt, (void*)work, sizeof(work));
+            // ARDUINO_FS_DEBUG("The status of f_mkfs : %d\r\n",ret);
+            // ARDUINO_FS_DEBUG("more information about the status , you can view the FRESULT enum\r\n");            
+            status = f_mount(&rootFLASH,_drv, 1);
         }
         if (status != FR_OK) {
             return false;
@@ -714,3 +835,4 @@ namespace fs {
         return 0;
     }
 };
+#endif // ARDUINO_Seeeduino_H7AI

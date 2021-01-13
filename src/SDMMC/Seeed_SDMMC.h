@@ -1,7 +1,7 @@
 
 #ifndef __SDMMC_H__
 #define __SDMMC_H__
-
+#ifdef ARDUINO_Seeeduino_H7AI
 #include <Arduino.h>
 #include <Seeed_FS.h>
 
@@ -27,6 +27,6 @@ namespace fs {
     };
 };
 
-
+#endif //ARDUINO_Seeeduino_H7AI
 
 #endif //__SDMMC_H__
