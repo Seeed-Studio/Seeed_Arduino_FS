@@ -81,7 +81,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff)
   * @param  None
   * @retval Time in DWORD
   */
-__weak DWORD get_fattime (void)
+ __attribute__((weak)) uint32_t get_fattime (void)
 {
   return 0;
 }
