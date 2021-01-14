@@ -38,7 +38,7 @@ typedef struct {
     int status;
 } ardu_sfud_t;
 
-static ardu_sfud_t* s_sfuds[_VOLUMES] = { NULL };
+static ardu_sfud_t* s_sfuds[FF_VOLUMES] = { NULL };
 namespace fs {
 
     class SFUDFS : public FS {

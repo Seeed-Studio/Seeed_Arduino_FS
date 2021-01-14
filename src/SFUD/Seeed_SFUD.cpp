@@ -51,8 +51,13 @@ namespace fs {
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
         if (status == FR_NO_FILESYSTEM){
             BYTE work[SECTORSIZE]; /* Work area (larger is better for processing time) */
+            MKFS_PARM opt ={0};
+            opt.fmt    = FM_FAT32;/* Format option (FM_FAT, FM_FAT32, FM_EXFAT and FM_SFD) */
+            opt.n_fat  = 0;     /* Number of FATs   (copies ? ) */
+            opt.n_root = 512;     /* Number of root directory entries */
+            opt.au_size = 512;      /* Cluster size (byte) */
             FRESULT ret;
-            ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
+            ret = f_mkfs(_drv, &opt, (void*)work, sizeof(work));
             SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
             SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
             status = f_mount(&rootFLASH,_drv, 1);
@@ -68,7 +73,7 @@ namespace fs {
             
             f_mount(NULL, _drv, 1);
             ardu_sfud_t* flash_t = s_sfuds[_pdrv];
-            if (_pdrv >= _VOLUMES || flash_t == NULL) {
+            if (_pdrv >= FF_VOLUMES || flash_t == NULL) {
                 return false;
             }
             ff_diskio_register(_pdrv, NULL);
@@ -83,7 +88,7 @@ namespace fs {
             return FLASH_NONE;
         }
         ardu_sfud_t* flash_t = s_sfuds[_pdrv];
-        if (_pdrv >= _VOLUMES || flash_t == NULL) {
+        if (_pdrv >= FF_VOLUMES || flash_t == NULL) {
             return FLASH_NONE;
         }   
         return flash_t->type;
@@ -93,7 +98,7 @@ namespace fs {
             return false;
         }
         ardu_sfud_t* flash_t = s_sfuds[_pdrv];
-        if (_pdrv >= _VOLUMES || flash_t == NULL) {
+        if (_pdrv >= FF_VOLUMES || flash_t == NULL) {
             return false;
         }
         SEEED_FS_DEBUG("The sectors: %d , The sector size: %d",flash_t->sectors,flash_t->sector_size);
