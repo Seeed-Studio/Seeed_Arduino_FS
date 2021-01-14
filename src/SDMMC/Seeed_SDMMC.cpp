@@ -210,7 +210,6 @@ void HAL_SD_MspDeInit(SD_HandleTypeDef* hsd)
 }
 
 
-
 /**
   * @brief SDMMC1 Initialization Function
   * @param None
@@ -739,8 +738,7 @@ void SDMMC1_IRQHandler(void)
 
 
 namespace fs {
-
-    boolean SDMMCFS::begin(uint8_t ssPin, int hz) {
+    boolean SDMMCFS::begin() {
         _pdrv = 0xff;
         if (ff_diskio_get_drive(&_pdrv) != 0 || _pdrv == 0xFF) {
             return false;
@@ -782,57 +780,11 @@ namespace fs {
     }
 
     void SDMMCFS::end() {
-        // if (_pdrv != 0xFF) {
-        //     f_mount(NULL, _drv, 1);
-        //     sdcard_uninit(_pdrv);
-        //     _pdrv = 0xFF;
-        // }
-        printf("end\r\n");
-    }
-
-    uint64_t SDMMCFS::cardSize() {
-        // if (_pdrv == 0xFF) {
-        //     return 0;
-        // }
-        // size_t sectors = sdcard_num_sectors(_pdrv);
-        // size_t sectorSize = sdcard_sector_size(_pdrv);
-        // return (uint64_t)sectors * sectorSize;
-         printf("cardSize\r\n");
-    }
-
-
-    uint64_t SDMMCFS::totalBytes() {
-        // FATFS* fsinfo;
-        // DWORD fre_clust;
-        // if (f_getfree(_drv, &fre_clust, &fsinfo) != 0) {
-        //     return 0;
-        // }
-        // uint64_t size = ((uint64_t)(fsinfo->csize)) * (fsinfo->n_fatent - 2)
-        //                 #if _MAX_SS != 512
-        //                 * (fsinfo->ssize);
-        //                 #else
-        //                 * 512;
-        //                 #endif
-        // return size;
-        printf("totalBytes\r\n");
-        return 0;
-    }
-
-    uint64_t SDMMCFS::usedBytes() {
-        // FATFS* fsinfo;
-        // DWORD fre_clust;
-        // if (f_getfree(_drv, &fre_clust, &fsinfo) != 0) {
-        //     return 0;
-        // }
-        // uint64_t size = ((uint64_t)(fsinfo->csize)) * ((fsinfo->n_fatent - 2) - (fsinfo->free_clst))
-        //                 #if _MAX_SS != 512
-        //                 * (fsinfo->ssize);
-        //                 #else
-        //                 * 512;
-        //                 #endif
-        // return size;
-        printf("totalBytes\r\n");
-        return 0;
+        if (_pdrv != 0xFF) {
+            f_mount(NULL, _drv, 1);
+            HAL_SD_MspDeInit(&hsd1);
+            _pdrv = 0xFF;
+        }
     }
 };
 #endif // ARDUINO_Seeeduino_H7AI

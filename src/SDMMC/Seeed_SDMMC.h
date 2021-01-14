@@ -17,13 +17,10 @@ namespace fs {
         ~SDMMCFS() {}
         // This needs to be called to set up the connection to the SD card
         // before other methods are used.
-        boolean begin(uint8_t ssPin = 11, int hz = 4000000);
+        boolean begin();
 
         //call this when a card is removed. It will allow you to insert and initialise a new card.
         void end();
-        uint64_t cardSize();
-        uint64_t totalBytes();
-        uint64_t usedBytes();
     };
 };
 

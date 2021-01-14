@@ -28,7 +28,7 @@ SDMMCFS SDMMC;
 
 void setup() {
     printf("initialization done..\r\n");
-    if (!DEV.begin(0,4000000UL)) {
+    if (!DEV.begin()) {
         printf("initialization error.\r\n");
     }
     printf("initialization done.\r\n");
@@ -57,7 +57,8 @@ void setup() {
         // if the file didn't open, print an error:
         printf("error opening hello.txt\r\n");
     }
-    
+    printf("write done...\r\n");
+
     // re-open the file for reading:
     File RootRead= DEV.open("0:/hello.txt");
     if (RootRead) {
@@ -74,6 +75,7 @@ void setup() {
         printf("error opening hello.txt\r\n");
     }
     #endif
+    printf("read done...\r\n");
 }
 
 void loop() {
