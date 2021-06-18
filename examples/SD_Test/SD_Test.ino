@@ -2,111 +2,103 @@
     Connect the SD card to the following pins:
 
     SD card attached to SPI bus as follows:
- ** MOSI - pin 11
- ** MISO - pin 12
- ** CLK - pin 13
- ** CS - pin 4 (for MKRZero SD: SDCARD_SS_PIN)
+
+    modified 18 June 2021
+    by Hongtai.liu
+
 */
 
-#include <Seeed_FS.h>
-#undef USESPIFLASH
-#ifdef USESPIFLASH
-#define DEV SPIFLASH
-#include "SFUD/Seeed_SFUD.h"
-#else
-#define DEV SD
-#include "SD/Seeed_SD.h"
-#endif 
+#include <Seeed_Arduino_FS.h>
 
-#define SERIAL Serial
+#define DEV SD
+#define LOG Serial
 
 #ifdef _SAMD21_
 #define SDCARD_SS_PIN 1
 #define SDCARD_SPI SPI
 #endif 
 
-
 void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
-    SERIAL.print("Listing directory: ");
-    SERIAL.println(dirname);
+    LOG.print("Listing directory: ");
+    LOG.println(dirname);
 
     File root = fs.open(dirname);
     if (!root) {
-        SERIAL.println("Failed to open directory");
+        LOG.println("Failed to open directory");
         return;
     }
     if (!root.isDirectory()) {
-        SERIAL.println("Not a directory");
+        LOG.println("Not a directory");
         return;
     }
 
     File file = root.openNextFile();
     while (file) {
         if (file.isDirectory()) {
-            SERIAL.print("  DIR : ");
-            SERIAL.println(file.name());
+            LOG.print("  DIR : ");
+            LOG.println(file.name());
             if (levels) {
                 listDir(fs, file.name(), levels - 1);
             }
         } else {
-            SERIAL.print("  FILE: ");
-            SERIAL.print(file.name());
-            SERIAL.print("  SIZE: ");
-            SERIAL.println(file.size());
+            LOG.print("  FILE: ");
+            LOG.print(file.name());
+            LOG.print("  SIZE: ");
+            LOG.println(file.size());
         }
         file = root.openNextFile();
     }
 }
 
 void createDir(fs::FS& fs, const char* path) {
-    SERIAL.print("Creating Dir: ");
-    SERIAL.println(path);
+    LOG.print("Creating Dir: ");
+    LOG.println(path);
     if (fs.mkdir(path)) {
-        SERIAL.println("Dir created");
+        LOG.println("Dir created");
     } else {
-        SERIAL.println("mkdir failed");
+        LOG.println("mkdir failed");
     }
 }
 
 void removeDir(fs::FS& fs, const char* path) {
-    SERIAL.print("Removing Dir: ");
-    SERIAL.println(path);
+    LOG.print("Removing Dir: ");
+    LOG.println(path);
     if (fs.rmdir(path)) {
-        SERIAL.println("Dir removed");
+        LOG.println("Dir removed");
     } else {
-        SERIAL.println("rmdir failed");
+        LOG.println("rmdir failed");
     }
 }
 
 void readFile(fs::FS& fs, const char* path) {
-    SERIAL.print("Reading Dir: ");
-    SERIAL.println(path);
+    LOG.print("Reading Dir: ");
+    LOG.println(path);
     File file = fs.open(path);
     if (!file) {
-        SERIAL.println("Failed to open file for reading");
+        LOG.println("Failed to open file for reading");
         return;
     }
 
-    SERIAL.print("Read from file: ");
+    LOG.print("Read from file: ");
     while (file.available()) {
-        SERIAL.write(file.read());
+        LOG.write(file.read());
     }
     file.close();
 }
 
 void writeFile(fs::FS& fs, const char* path, const char* message) {
-    SERIAL.print("Writing file: ");
-    SERIAL.println(path);
+    LOG.print("Writing file: ");
+    LOG.println(path);
     File file = fs.open(path, FILE_WRITE);
     if (!file) {
-        SERIAL.println("Failed to open file for writing");
+        LOG.println("Failed to open file for writing");
         return;
     }
     
     if (file.print(message)) {
-        SERIAL.println("File written");
+        LOG.println("File written");
     } else {
-        SERIAL.println("Write failed");
+        LOG.println("Write failed");
     }
 
     file.close();
@@ -114,41 +106,41 @@ void writeFile(fs::FS& fs, const char* path, const char* message) {
 }
 
 void appendFile(fs::FS& fs, const char* path, const char* message) {
-    SERIAL.print("Appending to file: ");
-    SERIAL.println(path);
+    LOG.print("Appending to file: ");
+    LOG.println(path);
 
     File file = fs.open(path, FILE_APPEND);
     if (!file) {
-        SERIAL.println("Failed to open file for appending");
+        LOG.println("Failed to open file for appending");
         return;
     }
     if (file.print(message)) {
-        SERIAL.println("Message appended");
+        LOG.println("Message appended");
     } else {
-        SERIAL.println("Append failed");
+        LOG.println("Append failed");
     }
     file.close();
 }
 
 void renameFile(fs::FS& fs, const char* path1, const char* path2) {
-    SERIAL.print("Renaming file ");
-    SERIAL.print(path1);
-    SERIAL.print(" to ");
-    SERIAL.println(path2);
+    LOG.print("Renaming file ");
+    LOG.print(path1);
+    LOG.print(" to ");
+    LOG.println(path2);
     if (fs.rename(path1, path2)) {
-        SERIAL.println("File renamed");
+        LOG.println("File renamed");
     } else {
-        SERIAL.println("Rename failed");
+        LOG.println("Rename failed");
     }
 }
 
 void deleteFile(fs::FS& fs, const char* path) {
-    SERIAL.print("Deleting file: ");
-    SERIAL.println(path);
+    LOG.print("Deleting file: ");
+    LOG.println(path);
     if (fs.remove(path)) {
-        SERIAL.println("File deleted");
+        LOG.println("File deleted");
     } else {
-        SERIAL.println("Delete failed");
+        LOG.println("Delete failed");
     }
 }
 
@@ -171,59 +163,38 @@ void testFileIO(fs::FS& fs, const char* path) {
             len -= toRead;
         }
         end = micros() - start;
-        SERIAL.print(flen);
-        SERIAL.print(" bytes read for ");
-        SERIAL.print(end);
-        SERIAL.println(" ns");
+        LOG.print(flen);
+        LOG.print(" bytes read for ");
+        LOG.print(end);
+        LOG.println(" ns");
         file.close();
     } else {
-        SERIAL.println("Failed to open file for reading");
+        LOG.println("Failed to open file for reading");
     }
 }
 
 void setup() {
-    SERIAL.begin(115200);
+    LOG.begin(115200);
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
-    while (!SERIAL) {};
-#ifdef SFUD_USING_QSPI
-    while (!DEV.begin(104000000UL)) {
-        SERIAL.println("Card Mount Failed");
-        return;
-    }
-#else
+    while (!LOG) {};
+
     while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
-        SERIAL.println("Card Mount Failed");
+        LOG.println("Card Mount Failed");
         return;
     }
-#endif 
 
 
-#ifdef USESPIFLASH
-    uint8_t flashType = DEV.flashType();
-    if (flashType == FLASH_NONE) {
-        SERIAL.println("No flash attached");
-        return;
-    }
-#else
     uint8_t cardType = DEV.cardType();
     if (cardType == CARD_NONE) {
-        SERIAL.println("No SD card attached");
+        LOG.println("No SD card attached");
         return;
     }
-#endif 
 
-#ifdef USESPIFLASH
-    uint32_t flashSize = DEV.flashSize() / (1024 * 1024);
-    SERIAL.print("flash Size: ");
-    SERIAL.print((uint32_t)flashSize);
-    SERIAL.println("MB");
-#else
     uint64_t cardSize = DEV.cardSize() / (1024 * 1024);
-    SERIAL.print("SD Card Size: ");
-    SERIAL.print((uint32_t)cardSize);
-    SERIAL.println("MB");
-#endif 
+    LOG.print("SD Card Size: ");
+    LOG.print((uint32_t)cardSize);
+    LOG.println("MB");
 
 
     listDir(DEV, "/", 0);
@@ -239,13 +210,13 @@ void setup() {
     readFile(DEV, "/foo.txt");
     testFileIO(DEV, "/foo.txt");
     uint32_t totalBytes = DEV.totalBytes();
-    SERIAL.print("Total space: ");
-    SERIAL.print(totalBytes / (1024 * 1024));
-    SERIAL.println("MB");
+    LOG.print("Total space: ");
+    LOG.print(totalBytes / (1024 * 1024));
+    LOG.println("MB");
     uint32_t usedBytes = DEV.usedBytes();
-    SERIAL.print("Used space: ");
-    SERIAL.print(usedBytes / (1024 * 1024));
-    SERIAL.println("MB");
+    LOG.print("Used space: ");
+    LOG.print(usedBytes / (1024 * 1024));
+    LOG.println("MB");
 }
 
 void loop() {
