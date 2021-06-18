@@ -1,11 +1,8 @@
 #ifndef SEEED_SDCARD_HAL_H
 #define SEEED_SDCARD_HAL_H
 
-#ifdef KENDRYTE_K210
-    #include "SPIClass.h"
-#else
-    #include "SPI.h"
-#endif
+
+#include "SPI.h"
 #include <Seeed_FS.h>
 #include "Arduino.h"
 
