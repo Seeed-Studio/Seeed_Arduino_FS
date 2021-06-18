@@ -2,7 +2,9 @@
 
 ## Introduction
 
-An Arduino library for the file operation.there exist FAT file systems in this lib to install the FS at SD card and SPI flash,meanwhile that use [Seeed SFUD](https://github.com/Seeed-Studio/Seeed_Arduino_SFUD) to support a lot of type of SPI flash.the FAT type can be support by using this lib.the more information we can get by accessing our [wiki](https://wiki.seeedstudio.com/Wio-Terminal-FS-ReadWrite/)
+A lightweight port of FatFs for Arduino. This library contains a routine to drive an SD card via SPI.The file system part is generic, which means you can easily port it to other types of memory, such as QSPI flash, emmc, etc.
+
+An example is included in [Seeed_Arduino_SFUD](https://github.com/Seeed-Studio/Seeed_Arduino_SFUD)
 
 ## Usage
 
@@ -10,69 +12,66 @@ An Arduino library for the file operation.there exist FAT file systems in this l
 
 ```c++
 
-#include <Seeed_FS.h>
-#define SERIAL Serial
-#ifdef USESPIFLASH    // if you want to use flash FS . default mode is spi mode
-#define DEV SPIFLASH
-#include "SFUD/Seeed_SFUD.h"
-#else                 // if you want to use SD FS
+#include <Seeed_Arduino_FS.h>
+
+#define LOG Serial
 #define DEV SD
-#include "SD/Seeed_SD.h"
-#endif
+
+#ifdef _SAMD21_
+#define SDCARD_SS_PIN 1
+#define SDCARD_SPI SPI
+#endif 
+
 
 void setup() {
-    // Open SERIAL communications and wait for port to open:
-    SERIAL.begin(115200);
-    while (!SERIAL) {
-        ; // wait for SERIAL port to connect. Needed for native USB port only
-    }
-
-    //init SPI flash or SPI SD card determined by USESPIFLASH
-    SERIAL.print("Initializing storage device...");
+    LOG.begin(115200);
+    pinMode(5, OUTPUT);
+    digitalWrite(5, HIGH);
+    while (!LOG) {};
     while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
-        SERIAL.println("Card Mount Failed");
+        LOG.println("Card Mount Failed");
         return;
     }
-    //you can use DEV.begin(104000000UL) to init device if you want to use QSPI flash.
 
-    SERIAL.println("initialization done.");
-    listDir(DEV, "/", 0);
-    SERIAL.println("done!");
+    LOG.println("initialization done.");
+
+    // open the file. note that only one file can be open at a time,
+    // so you have to close this one before opening another.
+
+    File RootWrite = DEV.open("/hello.txt", "w");
+    // File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
+
+    // if the file opened okay, write to it:
+    if (RootWrite) {
+        LOG.print("Writing to hello.txt...");
+        RootWrite.println("hello 1, 2, 3.");
+        // close the file:
+        RootWrite.close();
+        LOG.println("done.");
+    } else {
+        // if the file didn't open, print an error:
+        LOG.println("error opening hello.txt");
+    }
+    
+    // re-open the file for reading:
+    File RootRead= DEV.open("/hello.txt");
+    if (RootRead) {
+        LOG.println("hello.txt:");
+
+        // read from the file until there's nothing else in it:
+        while (RootRead.available()) {
+            LOG.write(RootRead.read());
+        }
+        // close the file:
+        RootRead.close();
+    } else {
+        // if the file didn't open, print an error:
+        LOG.println("error opening hello.txt");
+    }
 }
 
 void loop() {
-    // nothing happens after setup finishes.
-}
-void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
-    SERIAL.print("Listing directory: ");
-    SERIAL.println(dirname);
-
-    File root = fs.open(dirname);
-    if (!root) {
-        SERIAL.println("Failed to open directory");
-        return;
-    }
-    if (!root.isDirectory()) {
-        SERIAL.println("Not a directory");
-        return;
-    }
-
-    File file = root.openNextFile();
-    while (file) {
-        if (file.isDirectory()) {
-            SERIAL.print("  DIR : ");
-            SERIAL.println(file.name());
-            if (levels) {
-                listDir(fs, file.name(), levels - 1);
-            }
-        } else {
-            SERIAL.print("  FILE: ");
-            SERIAL.print(file.name());
-            SERIAL.print("  SIZE: ");
-            SERIAL.println(file.size());
-        }
-        file = root.openNextFile();
-    }
+    // nothing happens after setup
 }
 
 ```
