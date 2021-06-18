@@ -24,7 +24,7 @@ namespace fs {
         spi.begin();
         FRESULT status;
         _drv[0] = _T('0' + _pdrv);
-        status = f_mount(&rootSD, _drv, 1);
+        status = f_mount(&root, _drv, 1);
         if (status != FR_OK) {
             return false;
         } else {

@@ -45,7 +45,7 @@ namespace fs {
         ff_diskio_register(_pdrv, &flash_impl);
         FRESULT status;
         _drv[0] = _T('0' + _pdrv);
-        status = f_mount(&rootFLASH, _drv, 1);
+        status = f_mount(&root, _drv, 1);
         SEEED_FS_DEBUG("The available drive number : %d",_pdrv);
         SEEED_FS_DEBUG("The status of f_mount : %d",status);
         SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");
@@ -55,7 +55,7 @@ namespace fs {
             ret = f_mkfs(_drv, FM_FAT, 0, work, sizeof(work));
             SEEED_FS_DEBUG("The status of f_mkfs : %d",ret);
             SEEED_FS_DEBUG("more information about the status , you can view the FRESULT enum");            
-            status = f_mount(&rootFLASH,_drv, 1);
+            status = f_mount(&root,_drv, 1);
         }
         if (status != FR_OK) {
             return false;
