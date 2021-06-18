@@ -8,12 +8,7 @@
 #include "Seeed_SD.h"
 #include "Seeed_sdcard_hal.h"
 #include <Seeed_FS.h>
-#include "Arduino.h"
-#ifdef KENDRYTE_K210
-    #include <SPIClass.h>
-#else
-    #include <SPI.h>
-#endif
+
 
 
 

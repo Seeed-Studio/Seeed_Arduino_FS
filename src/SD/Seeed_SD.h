@@ -18,11 +18,8 @@
 #include <Arduino.h>
 #include "Seeed_sdcard_hal.h"
 #include <Seeed_FS.h>
-#ifdef KENDRYTE_K210
-    #include <SPIClass.h>
-#else
-    #include <SPI.h>
-#endif
+#include <SPI.h>
+
 
 
 namespace fs {

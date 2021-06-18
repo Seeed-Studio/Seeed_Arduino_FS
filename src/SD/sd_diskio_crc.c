@@ -99,8 +99,5 @@ unsigned short CRC16(const char* data, int length)
     for (int i = 0; i < length; i++) {
         crc = (crc << 8) ^ m_CRC16Table[((crc >> 8) ^ data[i]) & 0x00FF];
     }
-     #ifdef KENDRYTE_K210
-      crc = crc << 8 | (crc & 0xFF00)>>8;
-    #endif
     return crc;
 }
