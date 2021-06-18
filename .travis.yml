@@ -7,12 +7,12 @@ cache:
     - ~/.arduino15/packages/
 
 before_install:
-   - wget -c https://files.seeedstudio.com/arduino/seeed-arduino-ci.sh
+  - wget -c https://files.seeedstudio.com/arduino/seeed-arduino-simple-ci.sh
 
 script:
-   - chmod +x seeed-arduino-ci.sh
-   - cat $PWD/seeed-arduino-ci.sh
-   - bash $PWD/seeed-arduino-ci.sh listfiles:uno/Multi_partition:uno/ReadWrite:uno/SD_Test:uno Seeed-Studio/Seeed_Arduino_SFUD.git
+   - chmod +x seeed-arduino-simple-ci.sh
+   - cat $PWD/seeed-arduino-simple-ci.sh
+   - bash $PWD/seeed-arduino-simple-ci.sh -b "Seeeduino:samd:seeed_wio_terminal" -s listfiles/ReadWrite/SD_Test
 
 notifications:
   email:
