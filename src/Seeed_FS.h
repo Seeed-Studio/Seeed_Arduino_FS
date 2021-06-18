@@ -100,12 +100,13 @@ namespace fs {
         File openNextFile(uint8_t mode = FA_READ);
         void rewindDirectory(void);
 
+        File& operator = (const File &f);
+
         using Print::write;
     };
     class FS {
       protected:
-        FATFS rootSD;
-        FATFS rootFLASH;
+        FATFS root;
       public:
         // Open the specified file/directory with the supplied mode (e.g. read or
         // write, etc). Returns a File object for interacting with the file.

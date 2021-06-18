@@ -41,7 +41,7 @@ namespace fs {
     }
 
     File::~File() {
-        close();
+        //close();
     }
 
     // returns a pointer to the file name
@@ -258,6 +258,18 @@ namespace fs {
         }
         return false;
     }
+
+     File& File::operator = (const File &f)
+     {
+        if(this != & f){
+            close();
+            this->_file = f._file;
+            this->_dir = f._dir;
+            this->_fno = f._fno;
+            strcpy(this->_name, f._name); 
+        }
+     }
+
 
     File FS::open(const char* filepath, uint8_t mode) {
         FRESULT ret = FR_OK;
