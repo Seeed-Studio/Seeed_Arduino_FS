@@ -110,13 +110,14 @@ namespace fs {
         return -1;
     }
 
-    long File::read(void* buf, uint32_t nbyte) {
+    size_t File::read(void* buf, uint32_t nbyte) {
         UINT t;
         if (!_file) {
             return 0;
         }
         if (f_read(_file, buf, nbyte, &t) == FR_OK) {
-            return t;
+
+            return (size_t)t;
         } else {
             return 0;
         }

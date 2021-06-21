@@ -72,7 +72,7 @@ namespace fs {
         virtual int peek();
         virtual int available();
         virtual void flush();
-        long read(void* buf, uint32_t nbyte);
+        size_t read(void* buf, uint32_t nbyte);
         bool seek(uint32_t pos);
         bool seek(uint32_t pos, SeekMode mode);
         uint32_t position();
