@@ -3,7 +3,7 @@
 
     This example shows how to read and write data to and from an SD card file
     The circuit:
-    SD card attached to SPI bus as follows:
+    SD card attached to SPI bus or SDMMC
 
     created   Nov 2010
     by David A. Mellis
@@ -17,25 +17,36 @@
 */
 #include <Seeed_Arduino_FS.h>
 
-#define LOG Serial
-#define DEV SD
 
+#ifdef WIO_LITE_AI
+#define DEV  SDMMC 
+#else
+#define DEV  SD
 #ifdef _SAMD21_
 #define SDCARD_SS_PIN 1
 #define SDCARD_SPI SPI
 #endif 
+#endif
 
+
+#define LOG Serial
 
 void setup() {
     LOG.begin(115200);
     pinMode(5, OUTPUT);
     digitalWrite(5, HIGH);
     while (!LOG) {};
+#ifdef WIO_LITE_AI
+    while (!DEV.begin()) {
+        LOG.println("Card Mount Failed");
+        return;
+    }  
+#else
     while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
         LOG.println("Card Mount Failed");
         return;
-    }
-
+    }  
+#endif
     LOG.println("initialization done.");
 
     // open the file. note that only one file can be open at a time,

@@ -1,7 +1,7 @@
 /*
     Connect the SD card to the following pins:
 
-    SD card attached to SPI bus as follows:
+    SD card attached to SPI or SDMMC
 
     modified 18 June 2021
     by Hongtai.liu
@@ -10,44 +10,46 @@
 
 #include <Seeed_Arduino_FS.h>
 
-#define DEV SD
-#define LOG Serial
 
+#ifdef WIO_LITE_AI
+#define DEV  SDMMC 
+#else
+#define DEV  SD
 #ifdef _SAMD21_
 #define SDCARD_SS_PIN 1
 #define SDCARD_SPI SPI
 #endif 
+#endif
 
-void listDir(fs::FS& fs, const char* dirname, uint8_t levels) {
-    LOG.print("Listing directory: ");
-    LOG.println(dirname);
 
-    File root = fs.open(dirname);
-    if (!root) {
-        LOG.println("Failed to open directory");
-        return;
-    }
-    if (!root.isDirectory()) {
-        LOG.println("Not a directory");
-        return;
-    }
+#define LOG Serial
 
-    File file = root.openNextFile();
-    while (file) {
-        if (file.isDirectory()) {
-            LOG.print("  DIR : ");
-            LOG.println(file.name());
-            if (levels) {
-                listDir(fs, file.name(), levels - 1);
-            }
-        } else {
-            LOG.print("  FILE: ");
-            LOG.print(file.name());
-            LOG.print("  SIZE: ");
-            LOG.println(file.size());
-        }
-        file = root.openNextFile();
+void listDir( fs::FS& fs, const char* dirname, int numTabs )
+{
+   File dir= fs.open(dirname);
+
+   while (true) {
+
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
     }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      LOG.print('\t');
+    }
+    LOG.print(entry.name());
+    if (entry.isDirectory()) {
+      LOG.println("/");
+      listDir(fs,entry.name(), numTabs + 1);
+    } else {
+      // files have sizes, directories do not
+      LOG.print("\t\t");
+      LOG.print(entry.size(), DEC);
+      LOG.println(" bytes");
+    }
+    entry.close();
+  }
 }
 
 void createDir(fs::FS& fs, const char* path) {
@@ -179,10 +181,17 @@ void setup() {
     digitalWrite(5, HIGH);
     while (!LOG) {};
 
+#ifdef WIO_LITE_AI
+    while (!DEV.begin()) {
+        LOG.println("Card Mount Failed");
+        return;
+    }  
+#else
     while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
         LOG.println("Card Mount Failed");
         return;
-    }
+    }  
+#endif
 
 
     uint8_t cardType = DEV.cardType();
@@ -209,13 +218,14 @@ void setup() {
     renameFile(DEV, "/hello.txt", "/foo.txt");
     readFile(DEV, "/foo.txt");
     testFileIO(DEV, "/foo.txt");
-    uint32_t totalBytes = DEV.totalBytes();
+    uint64_t totalBytes = DEV.totalBytes();
     LOG.print("Total space: ");
     LOG.print(totalBytes / (1024 * 1024));
     LOG.println("MB");
-    uint32_t usedBytes = DEV.usedBytes();
+    uint64_t usedBytes = DEV.usedBytes();
     LOG.print("Used space: ");
-    LOG.print(usedBytes / (1024 * 1024));
+    uint32_t _usedBytes = usedBytes / (1024 * 1024);
+    LOG.print(_usedBytes);
     LOG.println("MB");
 }
 
