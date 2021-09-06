@@ -110,6 +110,14 @@ namespace fs {
         return -1;
     }
 
+   char * File::gets(char *str, uint32_t nbyte)
+   {
+        if (!_file) {
+            return NULL;
+        }
+        return f_gets(str, nbyte, _file);
+   }
+
     size_t File::read(void* buf, uint32_t nbyte) {
         UINT t;
         if (!_file) {
@@ -171,6 +179,14 @@ namespace fs {
         }
         return f_tell(_file);
     }
+
+    uint32_t File::tell() {
+        if (!_file) {
+            return -1;
+        }
+        return f_tell(_file);
+    }
+
 
     uint32_t File::size() {
         return f_size(_file);

@@ -73,9 +73,11 @@ namespace fs {
         virtual int available();
         virtual void flush();
         size_t read(void* buf, uint32_t nbyte);
+        char * gets(char *str, uint32_t nbyte);
         bool seek(uint32_t pos);
         bool seek(uint32_t pos, SeekMode mode);
         uint32_t position();
+        uint32_t tell();
         uint32_t size();
         void close();
         operator bool() const;
