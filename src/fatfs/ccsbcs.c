@@ -20,7 +20,7 @@
 /   866   Russian
 /   869   Greek 2
 */
-
+#ifndef ARDUINO_ARCH_NRF52840
 #include "ff.h"
 
 
@@ -385,3 +385,5 @@ WCHAR ff_wtoupper (	/* Returns upper converted character */
 
 	return chr;
 }
+
+#endif

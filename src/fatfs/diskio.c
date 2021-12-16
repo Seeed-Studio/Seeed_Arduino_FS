@@ -6,7 +6,7 @@
 /* This is an example of glue functions to attach various exsisting      */
 /* storage control modules to the FatFs module with a defined API.       */
 /*-----------------------------------------------------------------------*/
-
+#ifndef ARDUINO_ARCH_NRF52840
 #include "ff.h"      /* Obtains integer types */
 #include "diskio.h"   /* Declarations of disk functions */
 #include <stdlib.h>
@@ -76,3 +76,4 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff)
 {
     return s_impls[pdrv]->ioctl(pdrv, cmd, buff);
 }
+#endif

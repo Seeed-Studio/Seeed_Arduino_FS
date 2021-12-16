@@ -16,7 +16,7 @@
 / The copyright owner or contributors be NOT LIABLE for any damages caused
 / by use of this software.
 /----------------------------------------------------------------------------*/
-
+#ifndef ARDUINO_ARCH_NRF52840
 
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
@@ -6039,3 +6039,4 @@ int f_printf (
 
 #endif /* !_FS_READONLY */
 #endif /* _USE_STRFUNC */
+#endif
