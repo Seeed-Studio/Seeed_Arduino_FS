@@ -45,6 +45,19 @@ namespace fs{
         }
     }
 
+    uint8_t SDMMCFS::getPhysicalDriveNumber() {
+        return _pdrv;
+    }
+
+    String SDMMCFS::getDriveLetter() {
+        if (_pdrv == 0xFF) {
+            // Card not initialized
+            return "";
+        }
+        return String(_pdrv) + ":";
+    }
+
+
     int SDMMCFS::cardType()
     {
         if (_pdrv == 0xFF) {
