@@ -181,6 +181,8 @@ void setup() {
     digitalWrite(5, HIGH);
     while (!LOG) {};
 
+    delay(1000);
+
 #ifdef WIO_LITE_AI
     while (!DEV.begin()) {
         LOG.println("Card Mount Failed");
@@ -200,7 +202,7 @@ void setup() {
         return;
     }
 
-    uint64_t cardSize = DEV.cardSize() / (1024 * 1024);
+    uint32_t cardSize = DEV.cardSize() / (1024 * 1024);
     LOG.print("SD Card Size: ");
     LOG.print((uint32_t)cardSize);
     LOG.println("MB");
@@ -218,11 +220,11 @@ void setup() {
     renameFile(DEV, "/hello.txt", "/foo.txt");
     readFile(DEV, "/foo.txt");
     testFileIO(DEV, "/foo.txt");
-    uint64_t totalBytes = DEV.totalBytes();
+    uint32_t totalBytes = DEV.totalBytes();
     LOG.print("Total space: ");
     LOG.print(totalBytes / (1024 * 1024));
     LOG.println("MB");
-    uint64_t usedBytes = DEV.usedBytes();
+    uint32_t usedBytes = DEV.usedBytes();
     LOG.print("Used space: ");
     uint32_t _usedBytes = usedBytes / (1024 * 1024);
     LOG.print(_usedBytes);

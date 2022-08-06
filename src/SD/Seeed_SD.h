@@ -25,9 +25,6 @@
 namespace fs {
 
     class SDFS : public FS {
-      private:
-        uint8_t _pdrv;
-        TCHAR _drv[2] = {_T(char('0' + _pdrv)), _T(':')};
       public:
         SDFS() {}
         ~SDFS() {}
