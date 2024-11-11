@@ -35,6 +35,9 @@ namespace fs {
         //call this when a card is removed. It will allow you to insert and initialise a new card.
         void end();
 
+        uint8_t getPhysicalDriveNumber();
+        String getDriveLetter();
+
         sdcard_type_t cardType();
         uint64_t cardSize();
         uint64_t totalBytes();

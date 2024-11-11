@@ -39,6 +39,20 @@ namespace fs
         }
     }
 
+    uint8_t SDFS::getPhysicalDriveNumber()
+    {
+        return _pdrv;
+    }
+
+    String SDFS::getDriveLetter()
+    {
+        if (_pdrv == 0xFF) {
+            // Card not initialized
+            return "";
+        }
+        return String(_pdrv) + ":";
+    }
+
     sdcard_type_t SDFS::cardType()
     {
         if (_pdrv == 0xFF)
