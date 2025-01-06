@@ -39,7 +39,7 @@
 
 void setup() {
   // Open LOG communications and wait for port to open:
-  pinMode(LED_YELLOW, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
   LOG.begin(115200);
   while (!LOG) {
     ; // wait for LOG port to connect. Needed for native USB port only
@@ -70,9 +70,9 @@ void setup() {
 
 void loop() {
   // nothing happens after setup finishes.
-    digitalWrite(LED_YELLOW, LOW);  
+    digitalWrite(LED_BUILTIN, LOW);  
     delay(50);                    
-    digitalWrite(LED_YELLOW, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
     delay(500);   
 }
 
