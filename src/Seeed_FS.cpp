@@ -358,8 +358,10 @@ namespace fs
         FS::_path[1] = _T(':');
         FS::_path[2] = _T('/');
         FS::_path[3] = '\0';
-
-        if (FS::_path[3] == '\0' || (FS::_path[3] == '/' && FS::_path[4] == '\0')) // root dir
+        
+        strcat(FS::_path, filepath);
+        
+        if(FS::_path[3] == '\0' || (FS::_path[3] == '/' && FS::_path[4] == '\0')) // root dir
         {
             DIR dir;
             if ((ret = f_opendir(&dir, FS::_path)) == FR_OK)
@@ -371,8 +373,6 @@ namespace fs
                 return File();
             }
         }
-
-        strcat(FS::_path, filepath);
 
         if ((ret = f_stat(FS::_path, &v_fileinfo)) == FR_OK)
         {
