@@ -352,6 +352,10 @@ namespace fs
 
     File FS::open(const char *filepath, uint8_t mode)
     {
+        if(filepath == NULL){
+            return File();
+        }
+        
         FRESULT ret = FR_OK;
         FILINFO v_fileinfo;
         FS::_path[0] = _T('0' + _pdrv);
