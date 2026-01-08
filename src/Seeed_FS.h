@@ -1,6 +1,8 @@
 #ifndef __SEEED_FS__
 #define __SEEED_FS__
 
+#include <Arduino.h>
+
 /*
     ________________________________________________________________________________________________________________________________________
     |    Flags         |                            Meaning                                                                                  |
@@ -34,14 +36,18 @@
 #define FILE_WRITE (FA_CREATE_ALWAYS | FA_WRITE | FA_READ)
 #define FILE_APPEND (FA_OPEN_APPEND | FA_WRITE)
 
-extern "C"
-{
 #include "./fatfs/diskio.h"
 #include "./fatfs/ffconf.h"
 #include "./fatfs/ff.h"
-    char CRC7(const char *data, int length);
-    unsigned short CRC16(const char *data, int length);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+char CRC7(const char *data, int length);
+unsigned short CRC16(const char *data, int length);
+#ifdef __cplusplus
 }
+#endif
 
 namespace fs
 {

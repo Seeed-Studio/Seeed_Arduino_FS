@@ -1,10 +1,9 @@
 #ifndef SEEED_SDCARD_HAL_H
 #define SEEED_SDCARD_HAL_H
 
-
+#include "Arduino.h"
 #include "SPI.h"
 #include <Seeed_FS.h>
-#include "Arduino.h"
 
 typedef enum {
     CARD_NONE,

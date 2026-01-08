@@ -5,11 +5,13 @@
 #ifndef _DISKIO_DEFINED
 #define _DISKIO_DEFINED
 
+#include <stdint.h>
+
+#include "integer.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "Arduino.h"
-#include "integer.h"
 
 
 /* Status of Disk Functions */
