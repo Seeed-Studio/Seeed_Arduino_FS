@@ -266,8 +266,35 @@ const WCHAR Tbl[] = {	/*  CP869(0x80-0xFF) to Unicode conversion table */
 
 
 #if !_TBLDEF || !_USE_LFN
-#error This file is not needed at current configuration. Remove from the project.
-#endif
+/*
+ * The Arduino build system compiles all .c/.cpp files in the library directory,
+ * The original FatFs uses #error to prompt "This file should be removed from the project".
+ *
+ * However, in the Arduino ecosystem, it is impossible to dynamically exclude individual source files according to configuration,
+ * This would cause the project to fail to compile just by switching _CODE_PAGE (e.g., 936).
+ *
+ * Here we provide an "ASCII-only" safe fallback implementation:
+ * - Make the project compilable
+ * - Non-ASCII characters will fail conversion (return 0 or '?'), Chinese filenames will still be garbled/lost
+ *
+ * For full support of DBCS such as CP932/CP936/CP949/CP950, you need to add the corresponding DBCS conversion module files.
+ */
+
+WCHAR ff_convert (WCHAR chr, UINT dir)
+{
+	(void)dir;
+	/* Only supports ASCII; non-ASCII returns 0 indicating conversion failure */
+	return (chr < 0x80) ? chr : 0;
+}
+
+WCHAR ff_wtoupper (WCHAR chr)
+{
+	/* Only uppercase ASCII a-z; others remain unchanged */
+	if (chr >= 'a' && chr <= 'z') return chr - 0x20;
+	return chr;
+}
+
+#else
 
 
 
@@ -385,5 +412,7 @@ WCHAR ff_wtoupper (	/* Returns upper converted character */
 
 	return chr;
 }
+
+#endif
 
 #endif

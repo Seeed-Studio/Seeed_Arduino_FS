@@ -69,7 +69,14 @@
     / Locale and Namespace Configurations
     /---------------------------------------------------------------------------*/
 
-#define _CODE_PAGE	437
+// _CODE_PAGE determines the OEM/local code page used by FatFs when converting FAT LFN (UTF-16) to char names.
+// Note: This repository only includes the SBCS conversion module ccsbcs.c (supports 437/720/737/.../869).
+// If set to 932/936/949/950 (DBCS), an additional DBCS conversion module is required (not included in this repository),
+// otherwise it will fall back to ASCII (can compile, but Chinese filenames will still be garbled/lost).
+#ifndef SEEED_FATFS_CODE_PAGE
+#define SEEED_FATFS_CODE_PAGE 437  // Default to 437 (U.S.)
+#endif
+#define _CODE_PAGE SEEED_FATFS_CODE_PAGE
 /*  This option specifies the OEM code page to be used on the target system.
     /  Incorrect setting of the code page can cause a file open failure.
     /

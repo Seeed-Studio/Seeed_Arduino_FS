@@ -8,146 +8,95 @@ An example is included in [Seeed_Arduino_SFUD](https://github.com/Seeed-Studio/S
 
 ## Usage
 
-**this code has been tested at wio terminal.**
+This library uses a single recommended entrypoint per backend:
+- SPI SD: `seeedfs::SdSpiFatFs`
+- SDMMC (WIO_LITE_AI): `seeedfs::SdmmcFatFs`
+
+### SPI SD (most boards)
 
 ```c++
-
 #include <Seeed_Arduino_FS.h>
 
 #define LOG Serial
-#define DEV SD
 
-#ifdef _SAMD21_
-#define SDCARD_SS_PIN 1
+#ifndef SDCARD_SS_PIN
+#define SDCARD_SS_PIN D2
+#endif
+
+#ifndef SDCARD_SPI
 #define SDCARD_SPI SPI
-#endif 
+#endif
 
+#ifndef SDCARD_SPI_HZ
+#define SDCARD_SPI_HZ 400000UL
+#endif
+
+static seeedfs::SdSpiFatFs sd;
 
 void setup() {
     LOG.begin(115200);
-    pinMode(5, OUTPUT);
-    digitalWrite(5, HIGH);
-    while (!LOG) {};
-    while (!DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)) {
-        LOG.println("Card Mount Failed");
+    while (!LOG) {}
+
+    seeedfs::SdSpiCfg cfg;
+    cfg.csPin = SDCARD_SS_PIN;
+    cfg.spi = &SDCARD_SPI;
+    cfg.spiHz = SDCARD_SPI_HZ;
+
+    if (!sd.begin(cfg)) {
+        LOG.print("SD init failed: ");
+        LOG.println(sd.lastErrorString());
         return;
     }
 
-    LOG.println("initialization done.");
+    seeedfs::FS &fs = sd.fs();
 
-    // open the file. note that only one file can be open at a time,
-    // so you have to close this one before opening another.
-
-    File RootWrite = DEV.open("/hello.txt", "w");
-    // File RootWrite = DEV.open("/hello.txt", FILE_WRITE);
-
-    // if the file opened okay, write to it:
-    if (RootWrite) {
-        LOG.print("Writing to hello.txt...");
-        RootWrite.println("hello 1, 2, 3.");
-        // close the file:
-        RootWrite.close();
-        LOG.println("done.");
-    } else {
-        // if the file didn't open, print an error:
-        LOG.println("error opening hello.txt");
+    seeedfs::File f = fs.open("/hello.txt", "w");
+    if (!f) {
+        LOG.println("open /hello.txt failed");
+        return;
     }
-    
-    // re-open the file for reading:
-    File RootRead= DEV.open("/hello.txt");
-    if (RootRead) {
-        LOG.println("hello.txt:");
+    f.println("hello 1, 2, 3.");
+    f.close();
 
-        // read from the file until there's nothing else in it:
-        while (RootRead.available()) {
-            LOG.write(RootRead.read());
-        }
-        // close the file:
-        RootRead.close();
-    } else {
-        // if the file didn't open, print an error:
-        LOG.println("error opening hello.txt");
+    seeedfs::File r = fs.open("/hello.txt", "r");
+    while (r && r.available()) {
+        LOG.write(r.read());
     }
+    r.close();
 }
 
-void loop() {
-    // nothing happens after setup
+void loop() {}
+```
+
+### SDMMC (WIO_LITE_AI)
+
+```c++
+#include <Seeed_Arduino_FS.h>
+
+static seeedfs::SdmmcFatFs sd;
+
+void setup() {
+    Serial.begin(115200);
+    while (!Serial) {}
+
+    if (!sd.begin()) {
+        Serial.print("SDMMC init failed: ");
+        Serial.println(sd.lastErrorString());
+        return;
+    }
+
+    seeedfs::FS &fs = sd.fs();
+    // ... use fs.open/openDir/mkdir/etc
 }
 
+void loop() {}
 ```
 
 ## API Reference
 
-- boolean begin(uint8_t ssPin, SPIClass& sp, int hz) : config the SPI to control storage device
-
-```c++
-DEV.begin(SDCARD_SS_PIN,SDCARD_SPI,4000000UL)
-// DEV.begin(104000000UL) //use qspi flash
-```
-
-- sdcard_type_t  cardType() : get SD card type 
-
-**Note** : only work with SD card
-
-```c++
-    uint8_t cardType = DEV.cardType();
-    if (cardType == CARD_NONE) {
-        SERIAL.println("No SD card attached");
-        return;
-    }
-```
-
-- sfud_type_t   flashType() : get flash type
-
-**Note** : only work with flash
-
-```c++
-    uint8_t flashType = DEV.flashType();
-    if (flashType == FLASH_NONE) {
-        SERIAL.println("No flash attached");
-        return;
-    }
-```
-
-- uint64_t cardSize(): get SD card size
-
-**Note** : only work with SD card
-
-```c++
-    uint64_t cardSize = DEV.cardSize() / (1024 * 1024);
-    SERIAL.print("SD Card Size: ");
-    SERIAL.print((uint32_t)cardSize);
-    SERIAL.println("MB");
-```
-
-- uint64_t    flashSize() : get flash size
-
-**Note** : only work with flash
-
-```c++
-    uint32_t flashSize = DEV.flashSize() / (1024 * 1024);
-    SERIAL.print("flash Size: ");
-    SERIAL.print((uint32_t)flashSize);
-    SERIAL.println("MB");
-```
-
-- uint64_t totalBytes(): return total Bytes of storage device
-
-```c++
-    uint32_t totalBytes = DEV.totalBytes();
-    SERIAL.print("Total space: ");
-    SERIAL.print(totalBytes / (1024 * 1024));
-    SERIAL.println("MB");
-```
-
-- uint64_t usedBytes(): return used Bytes of storage device
-
-```c++
-    uint32_t usedBytes = DEV.usedBytes();
-    SERIAL.print("Used space: ");
-    SERIAL.print(usedBytes / (1024 * 1024));
-    SERIAL.println("MB");
-```
+- `seeedfs::SdSpiFatFs::begin(cfg)`: init SPI SD + start FATFS
+- `seeedfs::SdmmcFatFs::begin()`: init SDMMC + start FATFS (WIO_LITE_AI)
+- `open/openDir/mkdir/...`: same as `seeedfs::FS`
 
 ----
 

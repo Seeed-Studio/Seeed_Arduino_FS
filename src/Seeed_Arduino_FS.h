@@ -1,14 +1,12 @@
-#ifdef ARDUINO_ARCH_NRF52840
-/* use for NRF52840(eg. XIAO BLE) */
-#include <SD.h>
+#ifndef _SEEED_ARDUINO_FS_H_
+#define _SEEED_ARDUINO_FS_H_
 
-#else
-
+#include "Utils/Errors.h"
 #include "Seeed_FS.h"
-#include "SD/Seeed_SD.h"
+#include "FileSystem/FATFS/FatFs.h"
+#include "Drivers/SdCard/SdSpiDriver.h"
+#include "Storage/SdCard/SdmmcStorage.h"
+#include "Helpers/FatFsHelpers.h"
 
-#ifdef WIO_LITE_AI
-#include "SDMMC/Seeed_SDMMC.h"
-#endif
 
 #endif
