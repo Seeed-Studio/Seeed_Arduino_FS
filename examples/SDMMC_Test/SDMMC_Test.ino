@@ -5,6 +5,8 @@
     StorageImpl (SdmmcStorage) + FSImpl (FatFs) + unified FS API.
 
   This example is only for WIO_LITE_AI.
+
+    TODO: SDMMC path has not been fully regression-tested after refactor.
 */
 
 #include <Seeed_Arduino_FS.h>

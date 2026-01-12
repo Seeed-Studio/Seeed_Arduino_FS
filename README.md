@@ -70,6 +70,9 @@ void loop() {}
 
 ### SDMMC (WIO_LITE_AI)
 
+> TODO: The refactored SDMMC backend (StorageImpl + FatFs) has not been fully validated yet.
+> Please run basic regression on WIO_LITE_AI: init, listDir, read/write (small + large), repeated open/close, and power-cycle stability.
+
 ```c++
 #include <Seeed_Arduino_FS.h>
 
@@ -97,6 +100,15 @@ void loop() {}
 - `seeedfs::SdSpiFatFs::begin(cfg)`: init SPI SD + start FATFS
 - `seeedfs::SdmmcFatFs::begin()`: init SDMMC + start FATFS (WIO_LITE_AI)
 - `open/openDir/mkdir/...`: same as `seeedfs::FS`
+
+## Advanced: compose Storage + FS
+
+If you need direct control over the underlying storage driver (or you are porting to a new backend),
+you can manually compose the stack:
+
+`StorageImpl` (driver) + `FatFs` (FSImpl) + `FS` (unified API)
+
+See example: `examples/Advanced_ComposeFS/Advanced_ComposeFS.ino`
 
 ----
 
