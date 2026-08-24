@@ -45,7 +45,7 @@ namespace
         AcquireSPI(ardu_sdcard_t *card, int frequency)
             : card(card)
         {
-            card->spi->beginTransaction(SPISettings(card->frequency, MSBFIRST, SPI_MODE0));
+            card->spi->beginTransaction(SPISettings(frequency, MSBFIRST, SPI_MODE0));
         }
         ~AcquireSPI()
         {
@@ -130,7 +130,13 @@ char sdWriteBytes(uint8_t pdrv, const char *buffer, char token)
         return false;
     }
     card->spi->transfer(token);
-    card->spi->transfer((uint8_t *)buffer, 512);
+    // Send byte-by-byte: the block overload transfer(void*, size_t) is in-place
+    // on SAMD and would overwrite this buffer (the FatFs window) with the 0xFF
+    // bytes received while writing. See issue #18.
+    for (size_t i = 0; i < 512; i++)
+    {
+        card->spi->transfer((uint8_t)buffer[i]);
+    }
     card->spi->transfer16(crc);
     return (card->spi->transfer(0xFF) & 0x1F);
 }
